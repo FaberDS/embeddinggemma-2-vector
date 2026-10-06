@@ -12,6 +12,8 @@ source .venv/bin/activate
 python -m pip install -U -r requirements.txt
 ```
 
+The dependency minimums match the versions checked for EmbeddingGemma 2 support.
+
 If Hugging Face asks for model access, accept the terms on the
 [model page](https://huggingface.co/google/embeddinggemma-2) and authenticate
 with `hf auth login` or set the `HF_TOKEN` environment variable.
