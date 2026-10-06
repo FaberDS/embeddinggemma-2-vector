@@ -1,0 +1,10 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.xcuserstate
+xcuserdata/
+DerivedData/
+.swiftpm/
+iosApp/.build/
+**/swiftpm/configuration/mirrors.json
