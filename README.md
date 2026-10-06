@@ -72,3 +72,9 @@ Tests exercise PDF extraction, persistence across processes, search metadata,
 and re-ingestion with deterministic vectors. They do not measure EmbeddingGemma's
 retrieval quality or require downloading its weights.
 # embeddinggemma-2-vector
+
+## Mobile app
+
+The local Android/iOS assistant is in [mobile/](mobile/README.md). It uses a
+shared Compose Multiplatform UI with native local inference, file/image
+selection, onboarding, model download states and persistent history.

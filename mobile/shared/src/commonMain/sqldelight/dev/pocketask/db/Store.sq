@@ -1,0 +1,34 @@
+CREATE TABLE item (
+  kind TEXT NOT NULL,
+  id TEXT NOT NULL,
+  json TEXT NOT NULL,
+  PRIMARY KEY (kind, id)
+);
+
+put:
+INSERT OR REPLACE INTO item(kind, id, json) VALUES (?, ?, ?);
+
+get:
+SELECT json FROM item WHERE kind = ? AND id = ?;
+
+list:
+SELECT json FROM item WHERE kind = ? ORDER BY id DESC;
+
+remove:
+DELETE FROM item WHERE kind = ? AND id = ?;
+
+CREATE TABLE evidence (
+  attachment_id TEXT NOT NULL,
+  id TEXT NOT NULL PRIMARY KEY,
+  json TEXT NOT NULL
+);
+CREATE INDEX evidence_attachment ON evidence(attachment_id);
+
+putEvidence:
+INSERT OR REPLACE INTO evidence(attachment_id, id, json) VALUES (?, ?, ?);
+
+evidencePage:
+SELECT json FROM evidence WHERE attachment_id = ? ORDER BY id LIMIT 64 OFFSET ?;
+
+removeEvidence:
+DELETE FROM evidence WHERE attachment_id = ?;
