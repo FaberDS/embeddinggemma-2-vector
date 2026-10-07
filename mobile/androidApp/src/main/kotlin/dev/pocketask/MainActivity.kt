@@ -12,9 +12,10 @@ import dev.pocketask.db.AppDatabase
 
 class PocketViewModel(application: Application) : AndroidViewModel(application) {
     val inputs = AndroidInputs(application)
+    val speech = AndroidSpeech(application)
     val controller = AppController(application.filesDir.absolutePath,
-        Store(AndroidSqliteDriver(AppDatabase.Schema, application, "pocketask.db")), AndroidRuntime(application.cacheDir.absolutePath), inputs)
-    override fun onCleared() { controller.close(); inputs.close() }
+        Store(AndroidSqliteDriver(AppDatabase.Schema, application, "pocketask.db"), application.filesDir.absolutePath), AndroidRuntime(application.cacheDir.absolutePath), inputs, AndroidModelTransfers(application), platformSpeech = speech)
+    override fun onCleared() { controller.close(); inputs.close(); speech.close() }
 }
 
 class MainActivity : ComponentActivity() {
@@ -24,7 +25,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         model = ViewModelProvider(this)[PocketViewModel::class.java]
         model.inputs.attach(this)
+        model.speech.attach(this)
         setContent { PocketAskApp(model.controller) }
     }
+    override fun onStart() { super.onStart(); model.controller.foreground() }
     override fun onStop() { super.onStop(); if (!isChangingConfigurations) model.controller.background() }
 }

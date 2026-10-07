@@ -7,19 +7,30 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        AA0100000000000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0200000000000000000002; };
 		17C04E3E5E16AFBEC646ADAE /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = 6018E07545EE523537FF920A /* LiteRTLM */; };
 		2EB125225483C3EF62A7A560 /* IOSInputs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26F4B0804741CF02E804CFA1 /* IOSInputs.swift */; };
 		C9A1F9AA48B981532897E90D /* SwiftRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258F48E40151D91B975525B4 /* SwiftRuntime.swift */; };
 		DD7D7BB28D8C448AE86BFA3C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09291EA5BCA95EEBB4059AC0 /* Foundation.framework */; };
+		F2365ABE2D67FFD228D83496 /* IOSModelTransfers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE53B97670C88F78D01937A4 /* IOSModelTransfers.swift */; };
 		F844ABE3DD77761B6CE7867A /* PocketAskApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BDE5BBA1C6AA0F265C62206 /* PocketAskApp.swift */; };
+		AA0100000000000000000000 /* IOSSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200000000000000000000; };
+		AA0100000000000000000001 /* SupertonicHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200000000000000000001; };
+		AA0300000000000000000001 = {isa = PBXBuildFile; productRef = AA0400000000000000000001; };
+		AA0600000000000000000001 = {isa = PBXBuildFile; fileRef = AA0700000000000000000001; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        AA0200000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		09291EA5BCA95EEBB4059AC0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		258F48E40151D91B975525B4 /* SwiftRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SwiftRuntime.swift; sourceTree = "<group>"; };
 		26F4B0804741CF02E804CFA1 /* IOSInputs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSInputs.swift; sourceTree = "<group>"; };
 		4BDE5BBA1C6AA0F265C62206 /* PocketAskApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PocketAskApp.swift; sourceTree = "<group>"; };
 		5C5D78537CB33BE48EA4D47C /* PocketAsk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PocketAsk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE53B97670C88F78D01937A4 /* IOSModelTransfers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSModelTransfers.swift; sourceTree = "<group>"; };
+		AA0200000000000000000000 /* IOSSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IOSSpeech.swift"; sourceTree = "<group>"; };
+		AA0200000000000000000001 /* SupertonicHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SupertonicHelper.swift"; sourceTree = "<group>"; };
+		AA0700000000000000000001 = {isa = PBXFileReference; lastKnownFileType = folder; path = "../third-party/supertonic"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -29,6 +40,7 @@
 			files = (
 				DD7D7BB28D8C448AE86BFA3C /* Foundation.framework in Frameworks */,
 				17C04E3E5E16AFBEC646ADAE /* LiteRTLM in Frameworks */,
+				AA0300000000000000000001,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -59,14 +71,19 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		95FF883350016E17BA94A241 = {
+        95FF883350016E17BA94A241 = {
 			isa = PBXGroup;
-			children = (
+            children = (
+                AA0200000000000000000002 /* Assets.xcassets */,
+				AA0700000000000000000001,
+				AA0200000000000000000001,
+				AA0200000000000000000000,
 				4BC40DEE76721595460022C6 /* Products */,
 				57F86A31040710A39FBA1797 /* Frameworks */,
 				4BDE5BBA1C6AA0F265C62206 /* PocketAskApp.swift */,
 				258F48E40151D91B975525B4 /* SwiftRuntime.swift */,
 				26F4B0804741CF02E804CFA1 /* IOSInputs.swift */,
+				BE53B97670C88F78D01937A4 /* IOSModelTransfers.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -88,6 +105,7 @@
 			);
 			name = PocketAsk;
 			packageProductDependencies = (
+				AA0400000000000000000001,
 				6018E07545EE523537FF920A /* LiteRTLM */,
 			);
 			productName = PocketAsk;
@@ -114,6 +132,7 @@
 			mainGroup = 95FF883350016E17BA94A241;
 			minimizedProjectReferenceProxies = 0;
 			packageReferences = (
+				AA0500000000000000000001,
 				7DC67945C00ADB496FBAAFD2 /* XCRemoteSwiftPackageReference "LiteRT-LM" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -127,10 +146,12 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		DD55620F8528F2D7389E671A /* Resources */ = {
+        DD55620F8528F2D7389E671A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (
+            files = (
+                AA0100000000000000000002 /* Assets.xcassets in Resources */,
+				AA0600000000000000000001,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -163,9 +184,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0100000000000000000001,
+				AA0100000000000000000000,
 				F844ABE3DD77761B6CE7867A /* PocketAskApp.swift in Sources */,
 				C9A1F9AA48B981532897E90D /* SwiftRuntime.swift in Sources */,
 				2EB125225483C3EF62A7A560 /* IOSInputs.swift in Sources */,
+				F2365ABE2D67FFD228D83496 /* IOSModelTransfers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,7 +272,7 @@
 					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Info.plist";
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Pocket Ask";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -263,8 +287,8 @@
 					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = dev.denisschule.pocketask;
-				PRODUCT_NAME = PocketAsk;
 				PRODUCT_MODULE_NAME = PocketAskIOS;
+				PRODUCT_NAME = PocketAsk;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -287,7 +311,7 @@
 					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Info.plist";
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Pocket Ask";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -302,8 +326,8 @@
 					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = dev.denisschule.pocketask;
-				PRODUCT_NAME = PocketAsk;
 				PRODUCT_MODULE_NAME = PocketAskIOS;
+				PRODUCT_NAME = PocketAsk;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -405,6 +429,9 @@
 			productName = LiteRTLM;
 		};
 /* End XCSwiftPackageProductDependency section */
+        AA0400000000000000000001 = {isa = XCSwiftPackageProductDependency; package = AA0500000000000000000001; productName = onnxruntime; };
+        AA0500000000000000000001 = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/microsoft/onnxruntime-swift-package-manager.git"; requirement = {kind = exactVersion; version = 1.24.2; }; };
+
 	};
 	rootObject = DAF7ADED838C9A9613423386 /* Project object */;
 }

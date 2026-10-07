@@ -1,0 +1,3 @@
+ALTER TABLE evidence ADD COLUMN vector_kind TEXT;
+ALTER TABLE evidence ADD COLUMN dimensions INTEGER;
+ALTER TABLE evidence ADD COLUMN record_bytes INTEGER;

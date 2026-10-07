@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSMicrophoneUsageDescription</key><string>Dictate messages using your microphone on this device.</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>Convert your spoken messages to editable text with on-device recognition.</string>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
     <key>UISupportedInterfaceOrientations~ipad</key>
