@@ -1,23 +1,23 @@
 package dev.pocketask
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 private val Accent = Color(0xFF4C6758)
 
@@ -25,145 +25,65 @@ private val Accent = Color(0xFF4C6758)
 fun PocketAskApp(controller: AppController) {
     val state by controller.state.collectAsState()
     val models by controller.models.states.collectAsState()
-    val colors = if (isSystemInDarkTheme()) darkColorScheme(primary = Color(0xFFADD0B7)) else lightColorScheme(primary = Accent, surface = Color(0xFFFAFBF8), background = Color(0xFFFAFBF8))
+    val haze = rememberHazeState()
+    val showNavigation = WindowInsets.ime.getBottom(LocalDensity.current) == 0
+    val navigationSpace = if (showNavigation) 88.dp else 0.dp
+    val colors = if (isSystemInDarkTheme()) darkColorScheme(primary = Color(0xFFADD0B7), primaryContainer = Color(0xFF304437), onPrimaryContainer = Color(0xFFD5EAD8), secondaryContainer = Color(0xFF304437), onSecondaryContainer = Color(0xFFD5EAD8))
+        else lightColorScheme(primary = Accent, primaryContainer = Color(0xFFE0EBE2), onPrimaryContainer = Color(0xFF1F3528), secondaryContainer = Color(0xFFDFE7E0), onSecondaryContainer = Color(0xFF24402D), surface = Color(0xFFFAFBF8), background = Color(0xFFFAFBF8))
     MaterialTheme(colorScheme = colors) {
         Surface(Modifier.fillMaxSize()) {
             if (state.onboarding < 2) Onboarding(controller, state, models)
-            else Scaffold(
-                topBar = {
-                    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Pocket Ask", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { controller.settings(true) }) { Text("Settings") }
-                    }
-                },
-                bottomBar = {
-                    NavigationBar {
-                        NavigationBarItem(selected = state.screen == "ask", onClick = { controller.screen("ask") }, icon = { Text("＋") }, label = { Text("Ask") })
-                        NavigationBarItem(selected = state.screen != "ask", onClick = { controller.screen("history") }, icon = { Text("≡") }, label = { Text("History") })
-                    }
-                }
-            ) { padding ->
-                when (state.screen) {
-                    "history" -> History(controller, state, Modifier.padding(padding))
-                    "detail" -> LazyColumn(Modifier.padding(padding).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        item { TextButton(onClick = { controller.screen("history") }) { Text("Back to history") } }
-                        state.result?.let { answer ->
-                            item { Text(answer.question, style = MaterialTheme.typography.headlineSmall) }
-                            item { ResultCard(controller, answer, state.sourcesExpanded) }
-                            item { Button(onClick = { controller.useAgain(answer) }, enabled = state.stage == null) { Text("Use again") } }
+            else Box(Modifier.fillMaxSize().imePadding()) {
+                Scaffold(modifier = Modifier.fillMaxSize().hazeSource(haze),
+                    topBar = {
+                        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Pocket Ask", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            if (state.screen == "ask" && state.draft.conversationId != null) TextButton(onClick = controller::newQuestion, enabled = state.stage == null && !state.picking && !state.importing) { Text("New chat") }
                         }
                     }
-                    else -> Ask(controller, state, models, Modifier.padding(padding))
+                ) { padding ->
+                    when (state.screen) {
+                        "assets" -> Assets(controller, state, Modifier.padding(padding), navigationSpace)
+                        "settings" -> Settings(controller, state, models, Modifier.padding(padding), navigationSpace)
+                        "history" -> History(controller, state, Modifier.padding(padding), navigationSpace)
+                        "detail" -> Chat(controller, state, models, Modifier.padding(padding).padding(bottom = navigationSpace), readOnly = true)
+                        else -> Chat(controller, state, models, Modifier.padding(padding).padding(bottom = navigationSpace))
+                    }
                 }
+                if (showNavigation) GlassNavigation(state.screen, controller::screen, haze,
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp))
             }
-            if (state.settings) Settings(controller, state, models)
+            state.memory?.let { MemoryDialog(controller, it, state) }
         }
     }
 }
 
 @Composable
-private fun Ask(controller: AppController, state: UiState, models: Map<String, ModelState>, modifier: Modifier) {
-    val keyboard = LocalSoftwareKeyboardController.current
-    var allAttachments by remember { mutableStateOf(false) }
-    val needsSetup = !models.getValue("answer").installed || (state.draft.attachments.isNotEmpty() && !models.getValue("search").installed)
-    val busy = state.stage != null || state.picking || state.importing
-    LazyColumn(modifier.fillMaxSize().imePadding().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
-        item {
-            Text("A little help,\nkept on your device.", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(8.dp))
-            Text("Ask a question. Add files or images when you need them.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        item {
-            OutlinedTextField(state.draft.question, controller::question, modifier = Modifier.fillMaxWidth(), placeholder = { Text("What would you like to know?") }, minLines = 3, maxLines = 8,
-                enabled = !busy, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }))
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { controller.pick(false) }, enabled = !busy) { Text("Add files") }
-                OutlinedButton(onClick = { controller.pick(true) }, enabled = !busy) { Text("Add images") }
-            }
-            if (state.picking || state.importing) {
-                Spacer(Modifier.height(12.dp)); LinearProgressIndicator(Modifier.fillMaxWidth())
-                Text(if (state.importing) "Copying your selection…" else "Choose items in the picker", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        if (state.draft.attachments.isNotEmpty()) {
-            item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    val images = state.draft.attachments.count { it.isImage }
-                    Text("${state.draft.attachments.size - images} files · $images images", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                    if (state.draft.attachments.size > 3) TextButton(onClick = { allAttachments = !allAttachments }) { Text(if (allAttachments) "Show less" else "Show all") }
-                }
-            }
-            items(if (allAttachments) state.draft.attachments else state.draft.attachments.take(3), key = { it.id }) { attachment ->
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (attachment.isImage) AsyncImage(attachment.path, contentDescription = attachment.name, modifier = Modifier.size(48.dp))
-                        else Text("FILE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        Column(Modifier.weight(1f)) {
-                            Text(attachment.name, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                            Text(if (attachment.prepared) "Prepared" else "Ready to prepare", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        TextButton(onClick = { controller.removeAttachment(attachment.id) }, enabled = !busy) { Text("Remove") }
-                    }
-                }
-            }
-        }
-        item {
-            Button(onClick = { keyboard?.hide(); if (needsSetup) controller.settings(true) else controller.ask() }, enabled = !busy && state.draft.question.isNotBlank(), modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-                Text(if (needsSetup) "Set up models" else "Ask")
-            }
-            if (state.draft.attachments.isEmpty()) Text("No attachments · general answer", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        state.stage?.let { stage -> item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stage, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = controller::stop) { Text("Stop") }
-                }
-            }
-        } }
-        state.error?.let { error -> item { ErrorCard(error, controller::dismissError) } }
-        state.result?.let { answer ->
-            if (answer.text.isNotEmpty() || answer.status !in listOf("Preparing", "Answering")) {
-                item { ResultCard(controller, answer, state.sourcesExpanded) }
-                if (state.stage == null) item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = controller::newQuestion) { Text("New question") }
-                        if (answer.status == "Completed") TextButton(onClick = { controller.ask(expand = true) }) { Text("Expand answer") }
-                        else TextButton(onClick = { controller.useAgain(answer) }) { Text("Use again") }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResultCard(controller: AppController, answer: Answer, expanded: Boolean) {
-    val clipboard = LocalClipboardManager.current
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+internal fun IndexingState(controller: AppController, state: UiState) {
+    state.stage?.let { stage ->
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (answer.status == "Completed") "Answer" else answer.status, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                if (answer.text.isNotEmpty()) TextButton(onClick = { clipboard.setText(AnnotatedString(answer.text)) }) { Text("Copy") }
+                Text(stage, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = controller::stop) { Text("Stop") }
             }
-            Text(answer.text.ifBlank { answer.error ?: "This request did not finish. Use again to retry." }, style = MaterialTheme.typography.bodyLarge)
-            if (answer.sources.isNotEmpty()) {
-                TextButton(onClick = controller::toggleSources) { Text("${if (expanded) "Hide" else "Show"} sources · ${answer.sources.size}") }
-                if (expanded) answer.sources.forEachIndexed { index, source ->
-                    TextButton(onClick = { controller.open(source) }) { Text("[S${index + 1}] ${source.label}") }
-                }
-            }
+        }
+    }
+    val pending = state.library.count { !it.prepared }
+    if (pending > 0 && state.stage == null && !state.picking && !state.importing) {
+        Text("$pending ${if (pending == 1) "asset" else "assets"} waiting to index", style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { if (controller.models.states.value.getValue("search").installed) controller.indexAttachments() else controller.settings() }) {
+            Text(if (controller.models.states.value.getValue("search").installed) "Index assets" else "Set up search model")
         }
     }
 }
 
 @Composable
-private fun History(controller: AppController, state: UiState, modifier: Modifier) {
+private fun History(controller: AppController, state: UiState, modifier: Modifier, navigationSpace: Dp) {
     var clear by remember { mutableStateOf(false) }
-    LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
+    val now = rememberChatTime()
+    val conversations = conversationSummaries(state.history)
+    LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(top = 12.dp, bottom = navigationSpace + 12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Your history", modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
@@ -172,18 +92,18 @@ private fun History(controller: AppController, state: UiState, modifier: Modifie
         }
         if (controller.canUndo()) item { TextButton(onClick = controller::undoDelete) { Text("Entry deleted · Undo") } }
         if (state.history.isEmpty()) item { Text("Your questions and answers will appear here. Everything stays on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        items(state.history, key = { it.id }) { answer ->
+        items(conversations, key = { it.conversationId }) { answer ->
             OutlinedCard(onClick = { controller.showHistory(answer) }, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(answer.question, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-                    Text("${answer.attachments.size} attachments · ${answer.status}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(conversationTurns(state, answer.conversationId).firstOrNull()?.question ?: answer.question, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                    Text("${state.history.count { it.conversationId == answer.conversationId }} questions · ${messageTime(answer.completedAt ?: answer.sentAt(), now)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (answer.text.isNotBlank()) Text(answer.text, maxLines = 2, style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { controller.deleteHistory(answer) }, enabled = state.stage == null) { Text("Delete") }
+                    TextButton(onClick = { controller.deleteConversation(answer.conversationId) }, enabled = state.stage == null) { Text("Delete") }
                 }
             }
         }
     }
-    if (clear) AlertDialog(onDismissRequest = { clear = false }, title = { Text("Clear history?") }, text = { Text("Saved answers and attachments used only by these entries will be removed.") }, confirmButton = { TextButton(onClick = { controller.clearHistory(); clear = false }) { Text("Clear history") } }, dismissButton = { TextButton(onClick = { clear = false }) { Text("Keep history") } })
+    if (clear) AlertDialog(onDismissRequest = { clear = false }, title = { Text("Clear history?") }, text = { Text("Saved conversations will be removed. Your knowledge base is kept.") }, confirmButton = { TextButton(onClick = { controller.clearHistory(); clear = false }) { Text("Clear history") } }, dismissButton = { TextButton(onClick = { clear = false }) { Text("Keep history") } })
 }
 
 @Composable
@@ -193,42 +113,54 @@ private fun Onboarding(controller: AppController, state: UiState, models: Map<St
         Text("Pocket Ask", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
         if (state.onboarding == 0) {
             Text("Ask privately.\nStay on your device.", style = MaterialTheme.typography.headlineLarge)
-            Text("Select documents, add images, or simply ask a question. Get a short answer with sources when you provide material.", style = MaterialTheme.typography.bodyLarge)
+            Text("Build your knowledge base with documents, images and notes. Every chat searches your saved sources and gives a short answer with citations.", style = MaterialTheme.typography.bodyLarge)
             Text("After model setup, questions, attachments and history work offline.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.weight(1f))
             Button(onClick = controller::introNext, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Continue") }
         } else {
             Text("Prepare offline models", style = MaterialTheme.typography.headlineMedium)
-            Text("Two local models, about ${formatBytes(modelSpecs.sumOf { it.bytes })} total. Download once; use offline afterward.")
-            Column(Modifier.weight(1f).fillMaxWidth()) { ModelSetup(controller, state, models) }
+            Text("Two local models, about ${formatBytes(controller.selectedModels().sumOf { it.bytes })} total. Download once; use offline afterward.")
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) { ModelSetup(controller, state, models) }
             TextButton(onClick = controller::finishOnboarding, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Later · keep preparing a draft") }
         }
     }
 }
 
 @Composable
-private fun Settings(controller: AppController, state: UiState, models: Map<String, ModelState>) {
-    AlertDialog(onDismissRequest = { controller.settings(false) }, title = { Text("Offline models") }, text = {
-        Column { ModelSetup(controller, state, models); Spacer(Modifier.height(12.dp)); Text("Attachments and answers stay in private app storage. Models can be removed without deleting history.", style = MaterialTheme.typography.bodySmall) }
-    }, confirmButton = { TextButton(onClick = { controller.settings(false) }) { Text("Done") } })
-}
-
-@Composable
-private fun ModelSetup(controller: AppController, state: UiState, models: Map<String, ModelState>) {
+internal fun ModelSetup(controller: AppController, state: UiState, models: Map<String, ModelState>) {
     var cellular by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf<ModelSpec?>(null) }
     val busy = models.values.any { it.busy }
+    var choose by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        modelSpecs.forEach { spec ->
+        Text("Answer model", style = MaterialTheme.typography.titleSmall)
+        Box {
+            OutlinedButton(onClick = { choose = true }, enabled = !busy && state.stage == null, modifier = Modifier.fillMaxWidth()) {
+                Text(modelSpecs.first { it.id == state.answerModel }.title)
+            }
+            DropdownMenu(expanded = choose, onDismissRequest = { choose = false }) {
+                modelSpecs.filter { it.id != "search" }.forEach { option ->
+                    DropdownMenuItem(text = { Column {
+                        Text(option.title)
+                        Text("${formatBytes(option.bytes)} · ${option.detail}", style = MaterialTheme.typography.bodySmall)
+                    } }, onClick = { controller.selectAnswerModel(option.id); choose = false })
+                }
+            }
+        }
+        Text("Both choices support text and images on iOS and Android. E4B uses more memory.", style = MaterialTheme.typography.bodySmall)
+        controller.selectedModels().forEach { spec ->
             val status = models.getValue(spec.id)
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(spec.title, style = MaterialTheme.typography.titleSmall)
+                    Text(spec.filename.removeSuffix(".litertlm"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (spec.id == "search") "Search · text and images" else spec.detail, style = MaterialTheme.typography.bodySmall)
                     Text("${formatBytes(spec.bytes)} · ${status.stage}", style = MaterialTheme.typography.bodySmall)
                     if (status.busy) {
-                        if (status.stage == "Downloading") {
+                        if (status.stage == "Downloading" || status.stage == "Queued" || status.stage.startsWith("Waiting")) {
                             LinearProgressIndicator(progress = { (status.downloaded.toDouble() / spec.bytes).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                             Text("${formatBytes(status.downloaded)} / ${formatBytes(spec.bytes)}", style = MaterialTheme.typography.bodySmall)
+                            Text(status.remainingSeconds?.let(::formatRemaining) ?: if (status.stage == "Downloading") "Estimating time remaining…" else "Time estimate appears when downloading resumes", style = MaterialTheme.typography.bodySmall)
                         } else LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                     status.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -236,10 +168,14 @@ private fun ModelSetup(controller: AppController, state: UiState, models: Map<St
                 }
             }
         }
-        if (models.values.any { !it.installed }) {
+        if (controller.selectedModels().any { !models.getValue(it.id).installed }) {
             Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(cellular, { cellular = it }, enabled = !busy); Text("Allow cellular download", style = MaterialTheme.typography.bodySmall) }
             if (busy) OutlinedButton(onClick = controller::cancelDownloads, modifier = Modifier.fillMaxWidth()) { Text("Cancel download") }
             else Button(onClick = { controller.downloadModels(cellular) }, enabled = state.stage == null, modifier = Modifier.fillMaxWidth()) { Text("Download missing models") }
+        }
+        Text("Downloads continue in the background. The system may pause for Wi-Fi or battery. Reopen to verify completed models; on iOS, avoid force-quitting the app.", style = MaterialTheme.typography.bodySmall)
+        if (controller.selectedModels().all { models.getValue(it.id).installed } && state.onboarding < 2) {
+            Button(onClick = controller::finishOnboarding, modifier = Modifier.fillMaxWidth()) { Text("Start asking") }
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }
@@ -247,8 +183,16 @@ private fun ModelSetup(controller: AppController, state: UiState, models: Map<St
 }
 
 @Composable
-private fun ErrorCard(message: String, dismiss: () -> Unit) {
+internal fun ErrorCard(message: String, dismiss: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
         Column(Modifier.padding(16.dp)) { Text(message); TextButton(onClick = dismiss) { Text("Dismiss") } }
     }
+}
+
+@Composable
+internal fun ConfirmRemoveSource(source: Attachment, remove: () -> Unit, dismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = dismiss, title = { Text("Remove from knowledge base?") },
+        text = { Text("${source.name} will no longer be searched. Earlier answers keep their linked files.") },
+        confirmButton = { TextButton(onClick = remove, modifier = Modifier.testTag("knowledge.remove")) { Text("Remove") } },
+        dismissButton = { TextButton(onClick = dismiss) { Text("Keep source") } })
 }

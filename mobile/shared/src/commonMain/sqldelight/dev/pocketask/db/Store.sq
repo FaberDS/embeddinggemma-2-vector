@@ -17,18 +17,46 @@ SELECT json FROM item WHERE kind = ? ORDER BY id DESC;
 remove:
 DELETE FROM item WHERE kind = ? AND id = ?;
 
+removeKind:
+DELETE FROM item WHERE kind = ?;
+
 CREATE TABLE evidence (
   attachment_id TEXT NOT NULL,
   id TEXT NOT NULL PRIMARY KEY,
-  json TEXT NOT NULL
+  json TEXT NOT NULL,
+  vector_kind TEXT,
+  dimensions INTEGER,
+  record_bytes INTEGER
 );
 CREATE INDEX evidence_attachment ON evidence(attachment_id);
 
 putEvidence:
-INSERT OR REPLACE INTO evidence(attachment_id, id, json) VALUES (?, ?, ?);
+INSERT OR REPLACE INTO evidence(attachment_id, id, json, vector_kind, dimensions, record_bytes) VALUES (?, ?, ?, ?, ?, ?);
 
 evidencePage:
 SELECT json FROM evidence WHERE attachment_id = ? ORDER BY id LIMIT 64 OFFSET ?;
 
 removeEvidence:
 DELETE FROM evidence WHERE attachment_id = ?;
+
+legacyEvidence:
+SELECT id, json FROM evidence WHERE id >= ? AND (vector_kind IS NULL OR dimensions IS NULL OR record_bytes IS NULL) ORDER BY id LIMIT 64;
+
+updateEvidenceMetadata:
+UPDATE evidence SET vector_kind = ?, dimensions = ?, record_bytes = ? WHERE id = ?;
+
+knowledgeStats:
+SELECT COUNT(*) AS vectors,
+  COALESCE(SUM(CASE WHEN vector_kind = 'text' THEN 1 ELSE 0 END), 0) AS text_vectors,
+  COALESCE(SUM(CASE WHEN vector_kind = 'image' THEN 1 ELSE 0 END), 0) AS image_vectors,
+  COALESCE(SUM(CASE WHEN library.id IS NOT NULL AND prepared.json = 'yes' THEN 1 ELSE 0 END), 0) AS searchable_vectors,
+  CAST(COALESCE(SUM(record_bytes), 0) AS INTEGER) AS index_bytes,
+  CAST(COALESCE(SUM(dimensions), 0) * 4 AS INTEGER) AS raw_vector_bytes,
+  COALESCE(MIN(dimensions), 0) AS min_dimensions,
+  COALESCE(MAX(dimensions), 0) AS max_dimensions
+FROM evidence
+LEFT JOIN item AS library ON library.kind = 'library' AND library.id = evidence.attachment_id
+LEFT JOIN item AS prepared ON prepared.kind = 'prepared-v1-256' AND prepared.id = evidence.attachment_id;
+
+embeddingSample:
+SELECT json FROM evidence WHERE dimensions = 256 ORDER BY id LIMIT 1;

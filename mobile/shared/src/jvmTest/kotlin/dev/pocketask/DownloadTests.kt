@@ -28,6 +28,17 @@ class DownloadTests {
         override fun canDownload(cellular: Boolean) = true
         override fun now() = 1L
     }
+    @Test fun nestedVoiceAssetsCreateDirectoriesAndAreVerifiedBeforeUse() = runTest {
+        val root = Files.createTempDirectory("speech-download").toFile()
+        val nested = spec.copy(id = "speech-fixture", filename = "supertonic/voice_styles/F1.json")
+        val manager = ModelManager(root.path, database(), inputs, catalog = listOf(nested)) { HttpClient(MockEngine { respond(content) }) }
+        try {
+            manager.download(nested, false)
+            assertContentEquals(content, java.io.File(manager.path(nested)).readBytes())
+            assertTrue(manager.states.value.getValue(nested.id).installed)
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun partialDownloadResumesWithoutTruncatingTheExistingBytes() = runTest {
         val root = Files.createTempDirectory("pocketask-download").toFile()
         val partial = java.io.File(root, "models/${spec.filename}.part").apply { parentFile.mkdirs(); writeBytes(content.take(7).toByteArray()) }
@@ -62,6 +73,61 @@ class DownloadTests {
             assertFalse(manager.states.value.getValue(spec.id).installed)
             assertFalse(java.io.File(manager.path(spec)).exists())
             assertFalse(java.io.File(manager.path(spec) + ".part").exists())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun estimateUsesRecentSpeedAndResetsAfterSuspension() {
+        val estimate = DownloadEstimate(0, 100)
+        assertNull(estimate.state(1100, 100, 500).remainingSeconds)
+        assertEquals(4, estimate.state(1100, 300, 1000).remainingSeconds)
+        assertEquals(200.0, estimate.state(1100, 500, 2000).bytesPerSecond)
+        assertNull(estimate.state(1100, 600, 9000).remainingSeconds)
+        assertNull(estimate.state(1100, 600, 10000).remainingSeconds)
+        assertEquals("About 2 min left", formatRemaining(61))
+    }
+
+    private class NativeFixture(var result: TransferState) : ModelTransfers {
+        var cancelled = false
+        override fun copyReserve(spec: ModelSpec) = 0L
+        override fun start(spec: ModelSpec, cellular: Boolean) {}
+        override fun snapshot(spec: ModelSpec) = result
+        override fun cancel(spec: ModelSpec) { cancelled = true; result = TransferState("Paused") }
+    }
+
+    @Test fun completedBackgroundTransferIsVerifiedAndRecoveredOnNextLaunch() = runTest {
+        val root = Files.createTempDirectory("pocketask-native").toFile()
+        val transfer = java.io.File(root, "models/${spec.filename}.transfer").apply { parentFile.mkdirs(); writeBytes(content) }
+        val native = NativeFixture(TransferState("Downloaded", content.size.toLong(), transfer.path))
+        val db = database()
+        val manager = ModelManager(root.path, db, inputs, native, listOf(spec))
+        try {
+            manager.refreshTransfers()
+            assertContentEquals(content, java.io.File(manager.path(spec)).readBytes())
+            assertTrue(native.cancelled)
+            assertFalse(transfer.exists())
+            assertTrue(ModelManager(root.path, db, inputs, native, listOf(spec)).states.value.getValue(spec.id).installed)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun interruptedVerificationRecoversACompletePartialFile() = runTest {
+        val root = Files.createTempDirectory("pocketask-native").toFile()
+        java.io.File(root, "models/${spec.filename}.part").apply { parentFile.mkdirs(); writeBytes(content) }
+        val native = NativeFixture(TransferState())
+        val manager = ModelManager(root.path, database(), inputs, native, listOf(spec))
+        try { manager.refreshTransfers(); assertTrue(manager.states.value.getValue(spec.id).installed) }
+        finally { root.deleteRecursively() }
+    }
+
+    @Test fun backgroundChecksumFailureRemainsVisibleAndCannotInstallAModel() = runTest {
+        val root = Files.createTempDirectory("pocketask-native").toFile()
+        val transfer = java.io.File(root, "models/${spec.filename}.transfer").apply { parentFile.mkdirs(); writeBytes(content.copyOf().apply { this[0] = 0 }) }
+        val native = NativeFixture(TransferState("Downloaded", content.size.toLong(), transfer.path))
+        val manager = ModelManager(root.path, database(), inputs, native, listOf(spec))
+        try {
+            manager.refreshTransfers(); manager.refreshTransfers()
+            assertFalse(manager.states.value.getValue(spec.id).installed)
+            assertContains(manager.states.value.getValue(spec.id).error!!, "verification failed")
+            assertFalse(java.io.File(manager.path(spec)).exists())
         } finally { root.deleteRecursively() }
     }
 }

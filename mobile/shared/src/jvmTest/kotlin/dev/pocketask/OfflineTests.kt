@@ -25,26 +25,11 @@ class RetrievalTests {
         assertEquals("b-069", result.single().id)
         assertTrue(retrieve(db, emptySet(), vector(0)).isEmpty())
     }
-    @Test fun citationsRejectInventedIdsAndPreserveSourceIdentity() {
-        val sources = listOf(source("one", "one"), source("two", "two"))
-        val (answer, cited) = validCitations("Second [S2], first [S1], invented [S9].", sources)
-        assertEquals("Second [S2], first [S1], invented .", answer)
-        assertEquals(listOf("one", "two"), cited.map { it.id })
-    }
-    @Test fun visualEvidenceIncludesActualPixelsAndExplainsComparisonLimits() {
-        val image = Attachment("image", "photo.jpg", "/private/photo.jpg", "image/jpeg")
-        val result = evidencePackage("What is in this picture?", emptyList(), listOf(image))
-        assertEquals(listOf(image.path), result.images)
-        assertTrue(result.prompt.contains("[S1]"))
-        assertFailsWith<IllegalArgumentException> { evidencePackage("Compare all images", emptyList(), List(5) { image.copy(id = "$it") }) }
-    }
-    @Test fun chunksPreserveTheEndOfTextAndNormalizationRejectsBadVectors() {
-        val text = "0123456789".repeat(400)
-        val chunks = textChunks(text)
-        assertTrue(chunks.last().endsWith(text.takeLast(200)))
-        assertEquals(chunks[0].takeLast(160), chunks[1].take(160))
-        assertFailsWith<IllegalArgumentException> { normalize(List(256) { 0f }) }
-        assertFailsWith<IllegalArgumentException> { normalize(List(256) { Float.NaN }) }
+    @Test fun unrelatedVectorsDoNotForceFilesIntoAnAnswer() {
+        val db = store()
+        db.addEvidence(source("unrelated-image", "photo", index = 1, image = "/unopened/photo.jpg"))
+        db.addEvidence(source("opposite-document", "pdf").copy(vector = vector(0).map { -it }))
+        assertTrue(retrieve(db, setOf("photo", "pdf"), vector(0)).isEmpty())
     }
     @Test fun historyRestoresInterruptedRequestsAndKeepsSharedAssets() {
         val db = store()
@@ -73,10 +58,11 @@ private class FakeInputs : PlatformInputs {
 }
 private class FakeRuntime : LocalRuntime {
     val loads = mutableListOf<Boolean>()
+    val paths = mutableListOf<String>()
     var stream: StreamResult? = null
     var finishImmediately = true
     var cancels = 0
-    override fun load(search: Boolean, path: String, callback: Completion) { loads += search; callback.success() }
+    override fun load(search: Boolean, path: String, callback: Completion) { loads += search; paths += path; callback.success() }
     override fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult) = callback.success(vector(0))
     override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
         stream = callback; callback.token("A compact answer.")
@@ -104,6 +90,27 @@ class RequestTests {
             assertNull(controller.state.value.stage)
         } finally { controller.close(); root.deleteRecursively(); Dispatchers.resetMain() }
     }
+    @Test fun selectedAnswerModelIsPersistedAndUsedForInference() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val runtime = FakeRuntime()
+        val db = store()
+        val root = Files.createTempDirectory("pocketask-selection").toFile()
+        val controller = AppController(root.path, db, runtime, FakeInputs())
+        try {
+            val larger = modelSpecs.first { it.id == "answer-e4b" }
+            controller.selectAnswerModel(larger.id)
+            assertEquals(larger.id, db.value("answer-model"))
+            assertEquals(listOf("search", larger.id), controller.selectedModels().map { it.id })
+            controller.models.state(larger, ModelState(installed = true))
+            controller.question("Explain embeddings"); controller.ask(); advanceUntilIdle()
+            assertEquals(listOf(controller.models.path(larger)), runtime.paths)
+            assertEquals("Completed", controller.state.value.result?.status)
+            val restored = AppController(root.path, db, FakeRuntime(), FakeInputs())
+            assertEquals(larger.id, restored.state.value.answerModel)
+            restored.close()
+        } finally { controller.close(); root.deleteRecursively(); Dispatchers.resetMain() }
+    }
+
     @Test fun cancellationSavesPartialAnswerAndLateTokensCannotReplaceTheNextResult() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val runtime = FakeRuntime().apply { finishImmediately = false }

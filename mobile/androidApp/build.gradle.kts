@@ -4,7 +4,7 @@ plugins {
 }
 android {
     namespace = "dev.pocketask"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         applicationId = "dev.pocketask"
         minSdk = 31
@@ -15,8 +15,10 @@ android {
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     buildFeatures { compose = true }
+    sourceSets["main"].assets.srcDir("../third-party")
 }
 dependencies {
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.24.3")
     implementation(project(":shared"))
     implementation("app.cash.sqldelight:android-driver:2.1.0")
     implementation("androidx.activity:activity-compose:1.12.4")

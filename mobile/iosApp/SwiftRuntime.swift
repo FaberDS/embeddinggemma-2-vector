@@ -31,7 +31,7 @@ private actor ModelWorker {
 
     func embed(text: String, image: String?, query: Bool) async throws -> [Float] {
         guard let embedding, !cancelled else { throw CancellationError() }
-        let content: LiteRTLM.Content = image.map { .imageFile($0) } ?? .text(query ? "task: search result | query: \(text)" : "title: none | text: \(text)")
+        let content: LiteRTLM.Content = try image.map { try imageContent($0) } ?? .text(query ? "task: search result | query: \(text)" : "title: none | text: \(text)")
         return try await embedding.computeEmbedding(contents: [content], options: EmbeddingOptions(normalize: true, outputSize: 256)).embedding
     }
 
@@ -41,11 +41,21 @@ private actor ModelWorker {
         let current = try await engine.createConversation(with: config)
         conversation = current
         defer { conversation = nil }
-        let contents: [LiteRTLM.Content] = [.text(prompt)] + images.map { .imageFile($0) }
+        let contents: [LiteRTLM.Content] = [.text(prompt)] + (try images.map { try imageContent($0) })
         let stream = await current.sendMessageStream(Message(contents: contents), maxOutputTokens: 512)
         for try await chunk in stream {
             if cancelled { throw CancellationError() }
             callback.token(text: chunk.toString)
+        }
+    }
+
+    private func imageContent(_ path: String) throws -> LiteRTLM.Content {
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe)
+            guard !data.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
+            return .imageData(data)
+        } catch {
+            throw NSError(domain: "PocketAsk.Image", code: 1, userInfo: [NSLocalizedDescriptionKey: "An attached image is missing or unreadable. Remove it and add it again, then retry your question."])
         }
     }
 

@@ -1,0 +1,28 @@
+Generated with the built-in image_gen tool. Draft 2 selected by the user.
+
+DRAFT 1
+Use case: logo-brand.
+Asset type: original app logo draft for Pocket Ask, a private on-device AI assistant for asking questions about personal documents and memories.
+Style: exceptionally lean, simple, precise flat vector-like graphic, contemporary understated product identity. Bold optically balanced curves, readable at tiny icon sizes.
+Palette: only ivory #FAFBF8 for the symbol and muted deep sage #4C6758 for the background, matching the existing app.
+Composition: one centered ivory mark on an opaque uniform sage square background extending edge-to-edge. All essential symbol geometry fits inside the central 54% of the canvas in both dimensions, with ample negative space, circular-mask safe.
+Constraints: square icon asset, no rounded outer corners, no outer border, no drop shadow, no gradient, no texture, no glow, no glass effects, no 3D, no mockup, no text or labels, no words, no watermark. A deliberately simple original identity, avoid Apple/Google brand logos and generic AI sparkles.
+Draft 1 — Pocket conversation. Design one custom thick ivory outline silhouette fusing a small clothing pocket and conversation bubble: a short straight horizontal upper lip, softly rounded lower bowl, and one modest outward speech tail at the upper right. The shape is wider than tall and suggests a pocket holding knowledge. The outline is substantial, smooth, continuous, and visually unique; interior empty sage, no dots or extra symbols. Keep the speech tail short and softly rounded.
+
+DRAFT 2
+Use case: logo-brand.
+Asset type: original app logo draft for Pocket Ask, a private on-device AI assistant for asking questions about personal documents and memories.
+Style: exceptionally lean, simple, precise flat vector-like graphic, contemporary understated product identity. Bold optically balanced curves, readable at tiny icon sizes.
+Palette: only ivory #FAFBF8 for the symbol and muted deep sage #4C6758 for the background, matching the existing app.
+Composition: one centered ivory mark on an opaque uniform sage square background extending edge-to-edge. All essential symbol geometry fits inside the central 54% of the canvas in both dimensions, with ample negative space, circular-mask safe.
+Constraints: square icon asset, no rounded outer corners, no outer border, no drop shadow, no gradient, no texture, no glow, no glass effects, no 3D, no mockup, no text or labels, no words, no watermark. A deliberately simple original identity, avoid Apple/Google brand logos and generic AI sparkles.
+Draft 2 — Quiet P. Design a single bold custom geometric capital-P monogram. Use a thick rounded vertical stem and a generous softly rounded upper bowl, with a large sage negative-space counter. Give the counter a small subtle diagonal cut at its lower right that evokes conversation. The stem's lower end is softly rounded. The whole mark is cohesive, minimal and elegant, not a font glyph pasted on a background. No additional letter or symbol, no decoration.
+
+DRAFT 3
+Use case: logo-brand.
+Asset type: original app logo draft for Pocket Ask, a private on-device AI assistant for asking questions about personal documents and memories.
+Style: exceptionally lean, simple, precise flat vector-like graphic, contemporary understated product identity. Bold optically balanced curves, readable at tiny icon sizes.
+Palette: only ivory #FAFBF8 for the symbol and muted deep sage #4C6758 for the background, matching the existing app.
+Composition: one centered ivory mark on an opaque uniform sage square background extending edge-to-edge. All essential symbol geometry fits inside the central 54% of the canvas in both dimensions, with ample negative space, circular-mask safe.
+Constraints: square icon asset, no rounded outer corners, no outer border, no drop shadow, no gradient, no texture, no glow, no glass effects, no 3D, no mockup, no text or labels, no words, no watermark. A deliberately simple original identity, avoid Apple/Google brand logos and generic AI sparkles.
+Draft 3 — Knowledge cards. Design a compact original mark from two overlapping rounded document cards. One rear card is a short ivory L-shaped sliver visible above and left of the main card. The front ivory solid card has a single short chunky sage horizontal cutout in its upper-middle region and a small integrated speech tail at its lower right. Clear bold two-shape construction, broad generous negative-space separation, no folded paper corner, no text or tiny lines. Communicates asking your personal knowledge base.
