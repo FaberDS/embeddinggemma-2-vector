@@ -36,9 +36,12 @@ fun PocketAskApp(controller: AppController) {
             else Box(Modifier.fillMaxSize().imePadding()) {
                 Scaffold(modifier = Modifier.fillMaxSize().hazeSource(haze),
                     topBar = {
-                        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Pocket Ask", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                            if (state.screen == "ask" && state.draft.conversationId != null) TextButton(onClick = controller::newQuestion, enabled = state.stage == null && !state.picking && !state.importing) { Text("New chat") }
+                        Column {
+                            Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Pocket Ask", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                if (state.screen == "ask" && state.draft.conversationId != null) TextButton(onClick = controller::newQuestion, enabled = (state.stage == null || state.indexing != null) && !state.picking && !state.importing) { Text("New chat") }
+                            }
+                            ImportHeader(controller, state)
                         }
                     }
                 ) { padding ->
@@ -60,9 +63,13 @@ fun PocketAskApp(controller: AppController) {
 
 @Composable
 internal fun IndexingState(controller: AppController, state: UiState) {
-    state.stage?.let { stage ->
+    state.stage?.takeIf { state.indexing == null }?.let { stage ->
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
+            state.indexing?.takeIf { it.total > 0 }?.let { progress ->
+                LinearProgressIndicator(progress = { progress.fraction }, modifier = Modifier.fillMaxWidth())
+                progress.remainingSeconds?.let { Text("${formatRemaining(it)} in this step", style = MaterialTheme.typography.bodySmall) }
+                if (progress.background) Text("Can continue in the background", style = MaterialTheme.typography.bodySmall)
+            } ?: LinearProgressIndicator(Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stage, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = controller::stop) { Text("Stop") }
@@ -72,7 +79,7 @@ internal fun IndexingState(controller: AppController, state: UiState) {
     val pending = state.library.count { !it.prepared }
     if (pending > 0 && state.stage == null && !state.picking && !state.importing) {
         Text("$pending ${if (pending == 1) "asset" else "assets"} waiting to index", style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = { if (controller.models.states.value.getValue("search").installed) controller.indexAttachments() else controller.settings() }) {
+        TextButton(onClick = { if (controller.models.states.value.getValue("search").installed) controller.indexAttachments(true) else controller.settings() }) {
             Text(if (controller.models.states.value.getValue("search").installed) "Index assets" else "Set up search model")
         }
     }

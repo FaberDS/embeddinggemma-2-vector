@@ -36,6 +36,9 @@ INSERT OR REPLACE INTO evidence(attachment_id, id, json, vector_kind, dimensions
 evidencePage:
 SELECT json FROM evidence WHERE attachment_id = ? ORDER BY id LIMIT 64 OFFSET ?;
 
+getEvidence:
+SELECT json FROM evidence WHERE id = ?;
+
 removeEvidence:
 DELETE FROM evidence WHERE attachment_id = ?;
 
@@ -49,14 +52,16 @@ knowledgeStats:
 SELECT COUNT(*) AS vectors,
   COALESCE(SUM(CASE WHEN vector_kind = 'text' THEN 1 ELSE 0 END), 0) AS text_vectors,
   COALESCE(SUM(CASE WHEN vector_kind = 'image' THEN 1 ELSE 0 END), 0) AS image_vectors,
-  COALESCE(SUM(CASE WHEN library.id IS NOT NULL AND prepared.json = 'yes' THEN 1 ELSE 0 END), 0) AS searchable_vectors,
+  COALESCE(SUM(CASE WHEN library.id IS NOT NULL AND (prepared.json = 'yes' OR (searchable.json = 'yes' AND (vector_kind = 'text' OR image_ready.id IS NOT NULL))) THEN 1 ELSE 0 END), 0) AS searchable_vectors,
   CAST(COALESCE(SUM(record_bytes), 0) AS INTEGER) AS index_bytes,
   CAST(COALESCE(SUM(dimensions), 0) * 4 AS INTEGER) AS raw_vector_bytes,
   COALESCE(MIN(dimensions), 0) AS min_dimensions,
   COALESCE(MAX(dimensions), 0) AS max_dimensions
 FROM evidence
 LEFT JOIN item AS library ON library.kind = 'library' AND library.id = evidence.attachment_id
-LEFT JOIN item AS prepared ON prepared.kind = 'prepared-v1-256' AND prepared.id = evidence.attachment_id;
+LEFT JOIN item AS prepared ON prepared.kind = 'prepared-v1-256' AND prepared.id = evidence.attachment_id
+LEFT JOIN item AS searchable ON searchable.kind = 'searchable-v1' AND searchable.id = evidence.attachment_id
+LEFT JOIN item AS image_ready ON image_ready.kind = ('searchable-image:' || evidence.attachment_id) AND image_ready.id = evidence.id;
 
 embeddingSample:
 SELECT json FROM evidence WHERE dimensions = 256 ORDER BY id LIMIT 1;

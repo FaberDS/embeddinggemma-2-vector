@@ -3,19 +3,19 @@ package dev.pocketask
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Attachment(val id: String, val name: String, val path: String, val type: String, val prepared: Boolean = false, val isMemory: Boolean = false, val createdAt: Long? = null) {
+data class Attachment(val id: String, val name: String, val path: String, val type: String, val prepared: Boolean = false, val isMemory: Boolean = false, val createdAt: Long? = null, val searchable: Boolean = false) {
     val isImage get() = type.startsWith("image/")
     val needsImageDescriptions get() = isImage || type == "application/pdf"
 }
 
 @Serializable
-data class Evidence(val id: String, val attachmentId: String, val name: String, val page: Int?, val text: String, val image: String?, val vector: List<Float>, val previewImage: String? = null) {
+data class Evidence(val id: String, val attachmentId: String, val name: String, val page: Int?, val text: String, val image: String?, val vector: List<Float>, val previewImage: String? = null, val kind: String = "text") {
     val displayImage get() = previewImage ?: image
     val label get() = if (page == null) name else "$name · page $page"
 }
 
 @Serializable
-data class Answer(val id: String, val question: String, val attachments: List<Attachment>, val text: String = "", val sources: List<Evidence> = emptyList(), val status: String = "Preparing", val error: String? = null, val conversationId: String = id, val createdAt: Long? = null, val completedAt: Long? = null, val modelId: String? = null, val usesKnowledgeBase: Boolean = false)
+data class Answer(val id: String, val question: String, val attachments: List<Attachment>, val text: String = "", val sources: List<Evidence> = emptyList(), val status: String = "Preparing", val error: String? = null, val conversationId: String = id, val createdAt: Long? = null, val completedAt: Long? = null, val modelId: String? = null, val usesKnowledgeBase: Boolean = false, val timings: List<RequestTiming> = emptyList())
 
 @Serializable
 data class Draft(val question: String = "", val attachments: List<Attachment> = emptyList(), val conversationId: String? = null)
@@ -26,7 +26,8 @@ data class MemoryDraft(val transcript: String = "", val title: String = "", val 
 @Serializable
 data class ImageDescription(val text: String, val modelId: String)
 
-data class PageInput(val text: String, val imagePath: String?)
+@Serializable
+data class PageInput(val text: String, val imagePath: String?, val ocr: String? = null)
 data class ModelSpec(val id: String, val title: String, val filename: String, val url: String, val bytes: Long, val sha256: String, val detail: String = "")
 
 val modelSpecs = listOf(
@@ -45,7 +46,8 @@ data class ModelState(val installed: Boolean = false, val stage: String = "Not i
 data class UiState(val draft: Draft = Draft(), val history: List<Answer> = emptyList(), val library: List<Attachment> = emptyList(), val result: Answer? = null,
     val answerModel: String = "answer", val onboarding: Int = 0, val screen: String = "ask", val stage: String? = null,
     val error: String? = null, val picking: Boolean = false, val importing: Boolean = false, val sourcesExpanded: Boolean = false, val memory: MemoryDraft? = null,
-    val knowledge: KnowledgeStats? = null, val knowledgeLoading: Boolean = false, val knowledgeError: String? = null)
+    val knowledge: KnowledgeStats? = null, val knowledgeLoading: Boolean = false, val knowledgeError: String? = null, val indexing: IndexingProgress? = null,
+    val importReport: ImportReport? = null, val telemetryEnabled: Boolean = false)
 
 interface Completion { fun success(); fun failure(message: String) }
 interface VectorResult { fun success(values: List<Float>); fun failure(message: String) }
@@ -61,6 +63,7 @@ interface LocalRuntime {
     fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult)
     fun release(callback: Completion)
     fun cancel()
+    fun inferenceDetails(): String = "Backend not reported"
 }
 
 interface PlatformInputs {

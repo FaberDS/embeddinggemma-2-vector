@@ -6,6 +6,10 @@ import OnnxRuntimeBindings
 
 /// Recognition and playback are local. A generation token invalidates permission and audio callbacks.
 final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
+    weak var liveActivities: IOSVoiceActivities?
+    private func activity(_ phase: VoiceActivityPhase?, duration: TimeInterval? = nil) {
+        MainActor.assumeIsolated { liveActivities?.set(phase, duration: duration) }
+    }
     private let queue = DispatchQueue(label: "pocketask.speech", qos: .userInitiated)
     private let lock = NSLock()
     private var generation = 0
@@ -82,14 +86,16 @@ final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
                     }
                 }
             }
-            engine.prepare(); try engine.start(); recognition?.ready()
+            engine.prepare(); try engine.start(); activity(.recording); recognition?.ready()
             let timeout = DispatchWorkItem { [weak self] in if let self, self.current(id) { self.finishListening() } }
             self.timeout = timeout
             DispatchQueue.main.asyncAfter(deadline: .now() + 55, execute: timeout)
         } catch { failDictation(error.localizedDescription) }
     }
     func finishListening() {
+        guard engine != nil else { finishDictation(); return }
         engine?.stop(); request?.endAudio(); timeout?.cancel()
+        activity(.transcribing)
         let id = token()
         let work = DispatchWorkItem { [weak self] in if let self, self.current(id), self.recognition != nil { self.finishDictation() } }
         timeout = work
@@ -104,6 +110,7 @@ final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
         stop()
         let id = token()
         playback = callback
+        activity(.preparingVoice)
         queue.async { [weak self] in
             guard let self else { return }
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("pocketask-speech-\(UUID().uuidString).wav")
@@ -127,6 +134,7 @@ final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
                         let player = try AVAudioPlayer(contentsOf: url)
                         player.delegate = self; self.player = player; self.audioURL = url
                         guard player.play() else { throw NSError(domain: "speech", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not play this answer."]) }
+                        self.activity(.playback, duration: player.duration)
                         callback.stage(value: "Reading aloud…")
                     } catch { self.failPlayback(error.localizedDescription) }
                 }
@@ -144,6 +152,7 @@ final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
     }
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) { guard self.player === player else { return }; failPlayback("Could not play the generated audio.") }
     func stop() {
+        activity(nil)
         advance(); timeout?.cancel(); timeout = nil
         if let engine { engine.stop(); engine.inputNode.removeTap(onBus: 0) }
         engine = nil; request?.endAudio(); request = nil; task?.cancel(); task = nil; speechRecognizer = nil; recognition = nil

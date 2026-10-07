@@ -57,17 +57,14 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                         }
                     }
                 }
-                Text("${state.library.size} ${if (state.library.size == 1) "asset" else "assets"} · ${state.library.count { it.prepared }} indexed", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${state.library.size} ${if (state.library.size == 1) "asset" else "assets"} · ${state.library.count { it.prepared || it.searchable }} searchable", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Available to every chat.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(listOf("All", "Images", "Documents", "Memories")) { category ->
                         FilterChip(filter == category, { filter = category }, label = { Text(category, style = MaterialTheme.typography.labelMedium) }, modifier = Modifier.testTag("assets.filter.$category"))
                     }
                 }
-                if (state.picking || state.importing) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text(if (state.importing) "Importing assets…" else "Choose assets in the picker", style = MaterialTheme.typography.bodySmall)
-                }
+                if (state.picking && !state.importing) Text("Choose assets in the picker", style = MaterialTheme.typography.bodySmall)
                 IndexingState(controller, state)
             }
         }
@@ -103,7 +100,7 @@ private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remov
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(if (source.isMemory) source.name.removeSuffix(".md") else source.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("$kind · ${if (source.prepared) "Indexed" else "Waiting to index"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("$kind · ${if (source.prepared) "Indexed" else if (source.searchable) "Text searchable · visual indexing pending" else "Waiting to index"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

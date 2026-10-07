@@ -12,6 +12,33 @@ import kotlin.random.Random
 import kotlin.test.*
 
 class KnowledgeNativeTests {
+    @Test fun nativeSqliteReopenPreservesRecognizedTextAndHybridSearch() = runTest {
+        val root = (NSTemporaryDirectory() + "ocr-${Random.nextLong()}").toPath()
+        FileSystem.SYSTEM.createDirectories(root)
+        fun open() = NativeSqliteDriver(AppDatabase.Schema, "index.db", onConfiguration = {
+            it.copy(extendedConfig = it.extendedConfig.copy(basePath = root.toString()))
+        })
+        try {
+            val first = open()
+            try { seedOcr(Store(first, root.toString()), root.toString()) } finally { first.close() }
+            val second = open()
+            try { verifyOcr(Store(second, root.toString()), root.toString()) } finally { second.close() }
+        } finally { FileSystem.SYSTEM.deleteRecursively(root) }
+    }
+    @Test fun nativeSqliteReopenPreservesCheckpointsAndSearchablePages() = runTest {
+        val root = (NSTemporaryDirectory() + "checkpoint-${Random.nextLong()}").toPath()
+        FileSystem.SYSTEM.createDirectories(root)
+        fun open() = NativeSqliteDriver(AppDatabase.Schema, "index.db", onConfiguration = {
+            it.copy(extendedConfig = it.extendedConfig.copy(basePath = root.toString()))
+        })
+        try {
+            val first = open()
+            try { seedCheckpoint(Store(first, root.toString()), root.toString()) } finally { first.close() }
+            val second = open()
+            try { verifyCheckpoint(Store(second, root.toString()), root.toString()) } finally { second.close() }
+        } finally { FileSystem.SYSTEM.deleteRecursively(root) }
+    }
+
     @Test fun nativeDriverUpgradesAnExistingDatabaseAndMeasuresItsRealFiles() = runTest {
         val root = (NSTemporaryDirectory() + "knowledge-${Random.nextLong()}").toPath()
         FileSystem.SYSTEM.createDirectories(root)

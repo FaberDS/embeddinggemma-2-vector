@@ -17,6 +17,16 @@ private fun vector(index: Int) = List(256) { if (it == index) 1f else 0f }
 private fun source(id: String, owner: String, index: Int = 0, image: String? = null) = Evidence(id, owner, "$owner.pdf", 1, "Evidence $id", image, vector(index))
 
 class RetrievalTests {
+    @Test fun identifierMatchingFindsWeakSemanticMatchesWithoutSearchingUnselectedAssets() {
+        val db = store()
+        repeat(70) { db.addEvidence(source("a-${it.toString().padStart(3, '0')}", "selected").copy(text = "An unrelated passage")) }
+        db.addEvidence(source("best", "selected", index = 1).copy(text = "Invoice INV-42 total EUR 125.70", kind = "ocr"))
+        db.addEvidence(source("prefix", "selected").copy(text = "Invoice INV-420"))
+        db.addEvidence(source("hidden", "unselected").copy(text = "Invoice INV-42"))
+        val result = retrieve(db, setOf("selected"), vector(0), limit = 1, queryText = "What is the total for INV-42?")
+        assertEquals("best", result.single().id)
+        assertFalse(retrieve(db, setOf("selected"), vector(0), queryText = "INV-42").any { it.id == "hidden" })
+    }
     @Test fun selectedAttachmentsRemainSearchableBeyondTheFirstSqlitePage() {
         val db = store()
         repeat(150) { db.addEvidence(source("a-$it", "unselected")) }

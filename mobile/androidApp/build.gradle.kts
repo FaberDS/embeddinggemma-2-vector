@@ -18,10 +18,12 @@ android {
     sourceSets["main"].assets.srcDir("../third-party")
 }
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.24.3")
     implementation(project(":shared"))
     implementation("app.cash.sqldelight:android-driver:2.1.0")
     implementation("androidx.activity:activity-compose:1.12.4")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }

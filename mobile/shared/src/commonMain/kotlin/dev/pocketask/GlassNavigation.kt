@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
@@ -39,6 +38,7 @@ import dev.chrisbanes.haze.glass.hazeGlass
 import kotlin.math.roundToInt
 
 private val NavigationShape = RoundedCornerShape(32.dp)
+private val SelectorShape = RoundedCornerShape(26.dp)
 private val destinations = listOf(
     Triple("ask", "Ask", lineIcon("Chat") {
         moveTo(6f, 4f); lineTo(18f, 4f); quadTo(21f, 4f, 21f, 7f)
@@ -81,6 +81,10 @@ internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: H
             tint(colors.surface.copy(alpha = 0.55f))
         }
     }
+    val selectorStyle = remember(style) { style.then { shape(SelectorShape) } }
+    val glassInput = remember(haze) {
+        HazeInput.Sources(haze, retention = HazeSourceRetention.ClearWhenUnavailable)
+    }
     val selectedIndex = destinations.indexOfFirst { it.first == screen || (it.first == "history" && screen == "detail") }.coerceAtLeast(0)
     var dragging by remember { mutableStateOf<Float?>(null) }
     val position by animateFloatAsState(dragging ?: selectedIndex.toFloat(),
@@ -91,7 +95,7 @@ internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: H
     val density = LocalDensity.current
     BoxWithConstraints(modifier.widthIn(max = 360.dp).fillMaxWidth().height(64.dp)
         .shadow(12.dp, NavigationShape, clip = false)
-        .hazeGlass(HazeInput.Sources(haze, retention = HazeSourceRetention.ClearWhenUnavailable), style)
+        .hazeGlass(glassInput, style)
         .clip(NavigationShape).selectableGroup().testTag("navigation")) {
         val tabWidth = (maxWidth - 12.dp - 4.dp * (destinations.size - 1)) / destinations.size
         val step = with(density) { (tabWidth + 4.dp).toPx() }
@@ -115,14 +119,14 @@ internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: H
             val logical = (dragging ?: position).coerceIn(0f, destinations.lastIndex.toFloat())
             val physical = if (rtl) destinations.lastIndex - logical else logical
             Box(Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset { IntOffset((physical * step).roundToInt(), 0) }
-                .width(tabWidth).fillMaxHeight().clip(RoundedCornerShape(26.dp))
-                .background(colors.primary.copy(alpha = 0.14f)).testTag("navigation.selector"))
+                .width(tabWidth).fillMaxHeight()
+                .hazeGlass(glassInput, selectorStyle).clip(SelectorShape).testTag("navigation.selector"))
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 destinations.forEachIndexed { index, (route, label, icon) ->
                     val selected = selectedIndex == index
                     val preview = (dragging?.roundToInt() ?: selectedIndex) == index
                     val tint by animateColorAsState(if (preview) colors.primary else colors.onSurfaceVariant)
-                    Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(26.dp))
+                    Column(Modifier.weight(1f).fillMaxHeight().clip(SelectorShape)
                         .selectable(selected, role = Role.Tab, onClick = { if (screen != route) onSelect(route) })
                         .testTag("navigation.$route"), horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)) {

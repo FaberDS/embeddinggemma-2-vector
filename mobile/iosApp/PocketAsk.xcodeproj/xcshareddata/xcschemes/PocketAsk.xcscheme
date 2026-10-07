@@ -37,6 +37,16 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "7AC656586CBC014D99D11694"
+               BuildableName = "PocketAskNativeTests.xctest"
+               BlueprintName = "PocketAskNativeTests"
+               ReferencedContainer = "container:PocketAsk.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

@@ -14,7 +14,7 @@ class PocketViewModel(application: Application) : AndroidViewModel(application) 
     val inputs = AndroidInputs(application)
     val speech = AndroidSpeech(application)
     val controller = AppController(application.filesDir.absolutePath,
-        Store(AndroidSqliteDriver(AppDatabase.Schema, application, "pocketask.db"), application.filesDir.absolutePath), AndroidRuntime(application.cacheDir.absolutePath), inputs, AndroidModelTransfers(application), platformSpeech = speech)
+        Store(AndroidSqliteDriver(AppDatabase.Schema, application, "pocketask.db"), application.filesDir.absolutePath), AndroidRuntime(application), inputs, AndroidModelTransfers(application), platformSpeech = speech)
     override fun onCleared() { controller.close(); inputs.close(); speech.close() }
 }
 

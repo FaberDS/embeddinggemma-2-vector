@@ -17,7 +17,7 @@ class Store(private val driver: SqlDriver, root: String? = null) {
     private val queries = database.storeQueries
     private val assets = AssetPaths(root)
     private fun stored(attachment: Attachment) = attachment.copy(path = assets.relative(attachment.path, attachment.id))
-    private fun loaded(attachment: Attachment) = attachment.copy(path = assets.resolve(attachment.path, attachment.id), prepared = prepared(attachment))
+    private fun loaded(attachment: Attachment) = attachment.copy(path = assets.resolve(attachment.path, attachment.id), prepared = prepared(attachment), searchable = searchable(attachment))
     private fun stored(evidence: Evidence) = evidence.copy(image = evidence.image?.let { assets.relative(it, evidence.attachmentId) }, previewImage = evidence.previewImage?.let { assets.relative(it, evidence.attachmentId) })
     private fun loaded(evidence: Evidence) = evidence.copy(image = evidence.image?.let { assets.resolve(it, evidence.attachmentId) }, previewImage = evidence.previewImage?.let { assets.resolve(it, evidence.attachmentId) })
     private fun stored(answer: Answer) = answer.copy(attachments = answer.attachments.map(::stored), sources = answer.sources.map(::stored))
@@ -59,9 +59,12 @@ class Store(private val driver: SqlDriver, root: String? = null) {
         }
         return queries.list("library").executeAsList().map { loaded(json.decodeFromString<Attachment>(it)) }.map { source ->
             // Older visual indexes need descriptions once, during ingestion, never during a question.
-            if (source.needsImageDescriptions && source.prepared && value("described-v1", source.id) != "yes") {
+            if (source.needsImageDescriptions && value("prepared-v1-256", source.id) == "yes" && value("described-v1", source.id) != "yes") {
                 queries.remove("prepared-v1-256", source.id)
                 source.copy(prepared = false)
+            } else if (source.needsImageDescriptions && value("prepared-v1-256", source.id) == "yes" && value("ocr-v1", source.id) != "yes") {
+                // Keep existing vectors searchable while the one-time OCR upgrade runs.
+                source.copy(prepared = false, searchable = true)
             } else source
         }
     }
@@ -73,19 +76,53 @@ class Store(private val driver: SqlDriver, root: String? = null) {
     fun addEvidence(evidence: Evidence) {
         val encoded = json.encodeToString(stored(evidence))
         queries.putEvidence(evidence.attachmentId, evidence.id, encoded, if (evidence.image == null) "text" else "image", evidence.vector.size.toLong(), encoded.encodeToByteArray().size.toLong())
+        if (evidence.image != null && evidence.text.isNotBlank()) put("searchable-image:${evidence.attachmentId}", evidence.id, "yes")
     }
     fun evidence(attachment: String, offset: Long) = queries.evidencePage(attachment, offset).executeAsList().map { loaded(json.decodeFromString<Evidence>(it)) }
     fun markPrepared(attachment: Attachment) {
         queries.transaction {
-            if (attachment.needsImageDescriptions) put("described-v1", attachment.id, "yes")
+            if (attachment.needsImageDescriptions) {
+                put("described-v1", attachment.id, "yes")
+                put("ocr-v1", attachment.id, "yes")
+            }
             put("prepared-v1-256", attachment.id, "yes")
+            queries.removeKind("index-pages:${attachment.id}")
         }
     }
-    fun prepared(attachment: Attachment) = value("prepared-v1-256", attachment.id) == "yes"
+    fun prepared(attachment: Attachment) = value("prepared-v1-256", attachment.id) == "yes" &&
+        (!attachment.needsImageDescriptions || value("ocr-v1", attachment.id) == "yes")
+    fun searchable(attachment: Attachment) = value("prepared-v1-256", attachment.id) == "yes" || value("searchable-v1", attachment.id) == "yes"
+    fun checkpoint(attachment: Attachment): IndexCheckpoint? = value("index-checkpoint-v1", attachment.id)?.let { json.decodeFromString<IndexCheckpoint>(it) }
+    fun beginIndex(attachment: Attachment, pages: Int): IndexCheckpoint {
+        checkpoint(attachment)?.let { return it }
+        val upgrade = attachment.needsImageDescriptions && value("prepared-v1-256", attachment.id) == "yes" && value("described-v1", attachment.id) == "yes"
+        val checkpoint = if (upgrade) IndexCheckpoint(pages, pages, pages, pages, pages) else IndexCheckpoint(pages)
+        queries.transaction { if (!upgrade) discardEvidence(attachment); saveCheckpoint(attachment, checkpoint) }
+        return checkpoint
+    }
+    fun saveCheckpoint(attachment: Attachment, checkpoint: IndexCheckpoint) = put("index-checkpoint-v1", attachment.id, json.encodeToString(checkpoint))
+    fun commitPage(attachment: Attachment, checkpoint: IndexCheckpoint, evidence: List<Evidence>) {
+        queries.transaction {
+            evidence.forEach(::addEvidence)
+            if (evidence.any { it.text.isNotBlank() }) put("searchable-v1", attachment.id, "yes")
+            saveCheckpoint(attachment, checkpoint)
+        }
+    }
+    fun pageInput(attachment: Attachment, page: Int): PageInput? = value("index-pages:${attachment.id}", page.toString())?.let {
+        json.decodeFromString<PageInput>(it).let { input -> input.copy(imagePath = input.imagePath?.let { path -> assets.resolve(path, attachment.id) }) }
+    }
+    fun savePageInput(attachment: Attachment, page: Int, input: PageInput) = put("index-pages:${attachment.id}", page.toString(),
+        json.encodeToString(input.copy(imagePath = input.imagePath?.let { assets.relative(it, attachment.id) })))
+    fun imageEvidence(attachment: Attachment, page: Int): Evidence? = queries.getEvidence("${attachment.id}-$page-image").executeAsOneOrNull()?.let { loaded(json.decodeFromString<Evidence>(it)) }
     fun discardEvidence(attachment: Attachment) {
         queries.removeEvidence(attachment.id)
         queries.remove("prepared-v1-256", attachment.id)
         queries.remove("described-v1", attachment.id)
+        queries.remove("ocr-v1", attachment.id)
+        queries.remove("searchable-v1", attachment.id)
+        queries.remove("index-checkpoint-v1", attachment.id)
+        queries.removeKind("index-pages:${attachment.id}")
+        queries.removeKind("searchable-image:${attachment.id}")
     }
     suspend fun knowledgeStats(): KnowledgeStats {
         // Older indexes get small metadata fields once, without loading models or source files.

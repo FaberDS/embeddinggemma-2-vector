@@ -25,6 +25,17 @@ internal fun Settings(controller: AppController, state: UiState, models: Map<Str
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("settings.list"),
         verticalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(top = 12.dp, bottom = navigationSpace + 12.dp)) {
         item { Text("Settings", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            OutlinedCard(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Request timing", style = MaterialTheme.typography.titleMedium)
+                        Text("Record timestamps and stage durations for new questions. Show them between messages. Saved locally with each reply; hidden when off.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(state.telemetryEnabled, controller::telemetry, modifier = Modifier.testTag("settings.telemetry").semantics { contentDescription = "Show request timing" })
+                }
+            }
+        }
         item { KnowledgeOverview(state, controller::refreshKnowledge) }
         item { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("Models", style = MaterialTheme.typography.titleMedium); ModelSetup(controller, state, models) } }
         item { SpeechSettings(controller.speech, state.stage != null) }
@@ -60,8 +71,8 @@ private fun KnowledgeOverview(state: UiState, refresh: () -> Unit) {
                     HorizontalDivider()
                     Text(modelSpecs[0].title, style = MaterialTheme.typography.titleSmall)
                     Metric("Stored shape", stats.shape, "knowledge.shape")
-                    Text("Current encoder: 256 Float32 values, normalized to length 1. Exact cosine search retrieves up to 6 matching passages or images.", style = MaterialTheme.typography.bodySmall)
-                    Text("Text is split into 1,200-character passages with 160 characters of overlap. Photos and rendered PDF pages each get an image vector plus searchable passages from a saved AI description. Answers use those descriptions; originals are linked for viewing. Memory transcripts use the same text passages.", style = MaterialTheme.typography.bodySmall)
+                    Text("Current encoder: 256 Float32 values, normalized to length 1. Cosine similarity plus keyword matching retrieves up to 6 sources; exact identifiers and quoted phrases receive extra weight.", style = MaterialTheme.typography.bodySmall)
+                    Text("Text uses 1,200-character passages with 160 characters of overlap. Photos and PDF pages have image vectors and saved AI descriptions. On-device OCR adds separate text passages for photos and PDF pages with little embedded text. Answers use saved text; originals are linked for viewing. Memory transcripts use the same text passages.", style = MaterialTheme.typography.bodySmall)
                     Metric("Raw Float32 equivalent", storageSize(stats.rawVectorBytes), "knowledge.rawBytes")
                     Text("Vectors are stored as JSON in SQLite, so their disk use is larger than this raw numeric size.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (stats.sample.size == 256) {

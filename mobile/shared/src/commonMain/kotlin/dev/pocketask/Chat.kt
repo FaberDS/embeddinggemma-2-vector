@@ -22,11 +22,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlin.time.Clock
+import kotlin.time.TimeSource
 
 @Composable
 internal fun rememberChatTime(): Long {
@@ -42,7 +44,9 @@ internal fun Chat(controller: AppController, state: UiState, models: Map<String,
     val turns = conversationTurns(state, id)
     val list = rememberLazyListState()
     val now = rememberChatTime()
-    LaunchedEffect(id, turns.size) { if (turns.isNotEmpty()) list.animateScrollToItem(turns.size * 2 - 1) }
+    LaunchedEffect(id, turns.size, state.telemetryEnabled) {
+        if (turns.isNotEmpty()) list.animateScrollToItem(turns.sumOf { 2 + if (state.telemetryEnabled && it.timings.isNotEmpty()) 1 else 0 } - 1)
+    }
     Column(modifier.fillMaxSize()) {
         if (readOnly) TextButton(onClick = { controller.screen("history") }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Back to history") }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("chat.messages"), state = list,
@@ -54,6 +58,9 @@ internal fun Chat(controller: AppController, state: UiState, models: Map<String,
             }
             turns.forEach { answer ->
                 item(key = "user-${answer.id}") { UserMessage(answer, now, controller::open) }
+                if (state.telemetryEnabled && answer.timings.isNotEmpty()) item(key = "timing-${answer.id}") {
+                    RequestTimingPanel(answer, active = !readOnly && state.result?.id == answer.id && state.stage != null)
+                }
                 item(key = "reply-${answer.id}") { ModelMessage(answer, now, if (!readOnly && state.result?.id == answer.id) state.stage else null, controller::open, controller::useAgain,
                     onRead = if (controller.speech.available) { { controller.speech.read(answer) } } else null,
                     playing = speech.answerId == answer.id, canRead = state.stage == null, playbackStage = speech.stage.takeIf { speech.answerId == answer.id }) }
@@ -65,6 +72,44 @@ internal fun Chat(controller: AppController, state: UiState, models: Map<String,
                     modifier = Modifier.padding(16.dp).fillMaxWidth()) { Text("Continue conversation") }
             }
         } else ChatComposer(controller, state, models)
+    }
+}
+
+@Composable
+internal fun RequestTimingPanel(answer: Answer, active: Boolean) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { delay(2000); copied = false } }
+    var expanded by rememberSaveable(answer.id) { mutableStateOf(true) }
+    val events = answer.timings
+    val last = events.last()
+    val liveStart = remember(last) { TimeSource.Monotonic.markNow() }
+    val initialElapsed = remember(last) { last.elapsedMs + (Clock.System.now().toEpochMilliseconds() - last.timestamp).coerceAtLeast(0) }
+    var liveElapsed by remember(last) { mutableStateOf(initialElapsed) }
+    LaunchedEffect(active, last) {
+        while (active) { liveElapsed = initialElapsed + liveStart.elapsedNow().inWholeMilliseconds; delay(1000) }
+    }
+    val total = if (active) liveElapsed else last.elapsedMs
+    OutlinedCard(Modifier.fillMaxWidth().testTag("chat.timing.${answer.id}")) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Request timing · ${timingDuration(total)}", style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = { clipboard.setText(AnnotatedString(telemetryText(answer, total, active))); copied = true }, modifier = Modifier.testTag("chat.timing.copy.${answer.id}"), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (copied) "Copied" else "Copy telemetry") }
+                TextButton(onClick = { expanded = !expanded }, modifier = Modifier.testTag("chat.timing.toggle.${answer.id}"), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (expanded) "Hide" else "Show") }
+            }
+            if (expanded) {
+                Text("Local timestamps · +elapsed since Send · duration of each step", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                events.forEachIndexed { index, event ->
+                    val end = events.getOrNull(index + 1)?.elapsedMs ?: total
+                    val running = active && index == events.lastIndex
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("${timingTimestamp(event.timestamp)} · +${timingDuration(event.elapsedMs)}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${event.status}${if (index < events.lastIndex || running) " · ${timingDuration(end - event.elapsedMs)}${if (running) " · running" else ""}" else ""}", style = MaterialTheme.typography.bodySmall, color = if (running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        if (event.detail.isNotBlank()) Text(event.detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -152,21 +197,22 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
     var removing by remember { mutableStateOf<Attachment?>(null) }
     var writing by rememberSaveable { mutableStateOf(false) }
     val busy = state.stage != null || state.picking || state.importing
+    val answering = (state.stage != null && state.indexing == null) || state.picking || state.importing
     val needsSetup = !models.getValue(state.answerModel).installed || (state.library.isNotEmpty() && !models.getValue("search").installed)
-    val canSend = !speech.listening && !busy && state.draft.question.isNotBlank() && (needsSetup || state.library.isEmpty() || state.library.any { it.prepared })
+    val canSend = !speech.listening && !answering && state.draft.question.isNotBlank() && (needsSetup || state.library.isEmpty() || state.library.any { it.prepared || it.searchable })
     fun send() { if (canSend) { keyboard?.hide(); if (needsSetup) controller.settings() else controller.ask() } }
     Surface(tonalElevation = 2.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (state.library.isNotEmpty()) TextButton(onClick = { sources = true }, modifier = Modifier.testTag("chat.manageSources"), contentPadding = PaddingValues(horizontal = 4.dp)) {
-                Text("Knowledge base · ${state.library.size} sources · ${state.library.count { it.prepared }} indexed", style = MaterialTheme.typography.labelMedium)
+                Text("Knowledge base · ${state.library.size} sources · ${state.library.count { it.prepared || it.searchable }} searchable", style = MaterialTheme.typography.labelMedium)
             }
-            state.stage?.let { stage -> Row(verticalAlignment = Alignment.CenterVertically) {
+            state.stage?.takeIf { state.indexing == null }?.let { stage -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 Text(stage, Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.bodySmall, maxLines = 2)
                 TextButton(onClick = controller::stop) { Text("Stop") }
             } }
-            if (state.picking || state.importing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(if (state.importing) "Importing sources…" else "Choose sources", style = MaterialTheme.typography.bodySmall) }
-            if (!busy && state.library.any { !it.prepared }) TextButton(onClick = { if (models.getValue("search").installed) controller.indexAttachments() else controller.settings() }) {
+            if (state.picking && !state.importing) Text("Choose sources", style = MaterialTheme.typography.bodySmall)
+            if (!busy && state.library.any { !it.prepared }) TextButton(onClick = { if (models.getValue("search").installed) controller.indexAttachments(true) else controller.settings() }) {
                 Text(if (models.getValue("search").installed) "Index pending sources" else "Set up search model")
             }
             state.error?.let { error -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -188,7 +234,7 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
                         DropdownMenuItem(text = { Text("Add memory") }, enabled = controller.speech.available, onClick = { actions = false; keyboard?.hide(); controller.startMemory() }, modifier = Modifier.testTag("memory.add"))
                     }
                 }
-                OutlinedTextField(state.draft.question, controller::question, modifier = Modifier.weight(1f).testTag("chat.input"), placeholder = { Text("Message") }, minLines = 1, maxLines = 6, enabled = !busy && !speech.listening,
+                OutlinedTextField(state.draft.question, controller::question, modifier = Modifier.weight(1f).testTag("chat.input"), placeholder = { Text("Message") }, minLines = 1, maxLines = 6, enabled = !answering && !speech.listening,
                     shape = RoundedCornerShape(24.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }))
                 if (controller.speech.available) IconButton(onClick = { keyboard?.hide(); controller.speech.toggleListening() }, enabled = !busy,
                     modifier = Modifier.testTag("speech.microphone").semantics { contentDescription = if (speech.listening) "Finish dictation" else "Dictate message" }) { MicrophoneIcon(speech.listening) }
@@ -203,7 +249,7 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         TextButton(onClick = { controller.open(attachment.path) }, contentPadding = PaddingValues(0.dp)) { Text(attachment.name, maxLines = 2) }
-                        Text(listOfNotNull(if (attachment.isMemory) "Memory" else null, if (attachment.prepared) "Indexed" else "Waiting to index").joinToString(" · "), style = MaterialTheme.typography.labelSmall)
+                        Text(listOfNotNull(if (attachment.isMemory) "Memory" else null, if (attachment.prepared) "Indexed" else if (attachment.searchable) "Text searchable · visual indexing pending" else "Waiting to index").joinToString(" · "), style = MaterialTheme.typography.labelSmall)
                     }
                     TextButton(onClick = { removing = attachment }, enabled = !busy) { Text("Remove") }
                 }

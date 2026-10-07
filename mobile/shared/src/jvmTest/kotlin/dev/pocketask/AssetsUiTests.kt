@@ -61,7 +61,7 @@ class AssetsUiTests {
             onNodeWithTag("chat.input").performTextInput("A chat draft to keep")
             onNodeWithTag("navigation.assets").performClick().assertIsSelected()
             onNodeWithText("Your assets").assertIsDisplayed()
-            onNodeWithText("5 assets · 4 indexed").assertIsDisplayed()
+            onNodeWithText("5 assets · 4 searchable").assertIsDisplayed()
             onNodeWithTag("assets.filter.All").assertIsSelected()
             val first = onNodeWithTag("assets.item.${rose.id}").fetchSemanticsNode().boundsInRoot
             val second = onNodeWithTag("assets.item.${tulip.id}").fetchSemanticsNode().boundsInRoot

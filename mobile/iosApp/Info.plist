@@ -2,6 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSSupportsLiveActivities</key><true/>
+    <key>CFBundleURLTypes</key><array><dict>
+        <key>CFBundleURLSchemes</key><array><string>pocketask</string></array>
+    </dict></array>
+    <key>UIBackgroundModes</key><array><string>processing</string></array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key><array>
+        <string>dev.denisschule.pocketask.index.deferred</string>
+        <string>dev.denisschule.pocketask.index.continued.*</string>
+    </array>
     <key>NSMicrophoneUsageDescription</key><string>Dictate messages using your microphone on this device.</string>
     <key>NSSpeechRecognitionUsageDescription</key><string>Convert your spoken messages to editable text with on-device recognition.</string>
     <key>CADisableMinimumFrameDurationOnPhone</key>

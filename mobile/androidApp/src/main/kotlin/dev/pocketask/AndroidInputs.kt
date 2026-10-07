@@ -21,18 +21,24 @@ import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.*
 import java.io.File
 import java.util.UUID
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
-class AndroidInputs(private val application: Application) : PlatformInputs {
+class AndroidInputs(private val application: Application) : PlatformInputs, DocumentInputs {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activity: ComponentActivity? = null
     private lateinit var files: ActivityResultLauncher<Array<String>>
     private lateinit var photos: ActivityResultLauncher<PickVisualMediaRequest>
     private var pending: ImportResult? = null
+    private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
     init { PDFBoxResourceLoader.init(application) }
     fun attach(owner: ComponentActivity) {
         activity = owner
@@ -80,18 +86,22 @@ class AndroidInputs(private val application: Application) : PlatformInputs {
             } catch (e: Exception) { callback.failure("${attachment.name}: ${e.message ?: "could not open this file"}") }
         }
     }
-    override fun readPage(attachment: Attachment, page: Int, callback: PageResult) {
+    override fun readPage(attachment: Attachment, page: Int, callback: PageResult) = readPage(attachment, page, callback, true, true)
+    override fun readTextPage(attachment: Attachment, page: Int, callback: PageResult) = readPage(attachment, page, callback, true, false)
+    override fun readImagePage(attachment: Attachment, page: Int, callback: PageResult) = readPage(attachment, page, callback, false, true)
+    private fun readPage(attachment: Attachment, page: Int, callback: PageResult, textOnly: Boolean, visual: Boolean) {
         scope.launch {
             try {
                 val input = when {
-                    attachment.isImage -> PageInput("", attachment.path)
+                    attachment.isImage -> PageInput("", attachment.path, if (textOnly) recognize(File(attachment.path)) else null)
                     attachment.type == "application/pdf" -> {
-                        val text = PDDocument.load(File(attachment.path), MemoryUsageSetting.setupTempFileOnly()).use { document ->
+                        val text = if (textOnly) PDDocument.load(File(attachment.path), MemoryUsageSetting.setupTempFileOnly()).use { document ->
                             require(!document.isEncrypted) { "Encrypted PDFs are not supported." }
                             PDFTextStripper().apply { startPage = page + 1; endPage = page + 1 }.getText(document)
-                        }
+                        } else ""
+                        val needsOcr = textOnly && OcrPolicy.needsRecognition(text)
                         val image = File(File(attachment.path).parentFile, "page-$page.jpg")
-                        if (!image.exists()) ParcelFileDescriptor.open(File(attachment.path), ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+                        if ((visual || needsOcr) && !image.exists()) ParcelFileDescriptor.open(File(attachment.path), ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                             PdfRenderer(descriptor).use { renderer -> renderer.openPage(page).use { pdfPage ->
                                 val scale = 1400.0 / max(pdfPage.width, pdfPage.height)
                                 val bitmap = Bitmap.createBitmap((pdfPage.width * scale).roundToInt().coerceAtLeast(1), (pdfPage.height * scale).roundToInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -99,7 +109,8 @@ class AndroidInputs(private val application: Application) : PlatformInputs {
                                 image.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }; bitmap.recycle()
                             } }
                         }
-                        PageInput(text, image.absolutePath)
+                        PageInput(text, if (visual || needsOcr) image.absolutePath else null,
+                            if (needsOcr) OcrPolicy.additionalText(text, recognize(image)) else if (textOnly) "" else null)
                     }
                     else -> {
                         require(File(attachment.path).length() <= 20_000_000) { "Text files larger than 20 MB must be split before import." }
@@ -108,6 +119,16 @@ class AndroidInputs(private val application: Application) : PlatformInputs {
                 }
                 callback.success(input)
             } catch (e: Exception) { callback.failure("${attachment.name}: ${e.message ?: "page could not be read"}") }
+        }
+    }
+    private suspend fun recognize(file: File): String {
+        val image = InputImage.fromFilePath(application, Uri.fromFile(file))
+        return suspendCancellableCoroutine { continuation ->
+            recognizer.process(image).addOnSuccessListener { result ->
+                if (continuation.isActive) continuation.resume(result.text)
+            }.addOnFailureListener { error ->
+                if (continuation.isActive) continuation.resumeWithException(error)
+            }.addOnCanceledListener { continuation.cancel() }
         }
     }
     override fun open(path: String, page: Int) {
@@ -123,5 +144,5 @@ class AndroidInputs(private val application: Application) : PlatformInputs {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && (cellular || !manager.isActiveNetworkMetered)
     }
     override fun now() = System.currentTimeMillis()
-    fun close() { scope.cancel(); activity = null }
+    fun close() { scope.cancel(); recognizer.close(); activity = null }
 }

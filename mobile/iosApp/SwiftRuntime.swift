@@ -10,7 +10,7 @@ private actor ModelWorker {
     private var cancelled = false
     private let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].path
 
-    func load(search: Bool, path: String) async throws {
+    func load(search: Bool, path: String, cpu: Bool) async throws {
         await release(); cancelled = false
         if search {
             let model = EmbeddingEngine(config: EmbeddingEngineConfig(modelPath: path, backend: .cpu(threadCount: 4), visionBackend: .cpu(threadCount: 4), cacheDir: cache))
@@ -20,9 +20,9 @@ private actor ModelWorker {
             #if targetEnvironment(simulator)
             let backend = Backend.cpu(threadCount: 4)
             #else
-            let backend = Backend.gpu
+            let backend = cpu ? Backend.cpu(threadCount: 4) : Backend.gpu
             #endif
-            let model = Engine(engineConfig: try EngineConfig(modelPath: path, backend: backend, visionBackend: .cpu(threadCount: 4), maxNumTokens: 8192, cacheDir: cache))
+            let model = Engine(engineConfig: try EngineConfig(modelPath: path, backend: backend, visionBackend: .cpu(threadCount: 4), maxNumTokens: cpu ? 4096 : 8192, cacheDir: cache))
             engine = model
             try await model.initialize()
         }
@@ -75,6 +75,12 @@ final class SwiftRuntime: LocalRuntime, @unchecked Sendable {
     private let worker = ModelWorker()
     private let queueLock = NSLock()
     private var previous: Task<Void, Never>?
+    private var indexingCPU = false
+    private var details = "No model loaded"
+    func setIndexingCPU(_ value: Bool) { queueLock.lock(); indexingCPU = value; queueLock.unlock() }
+    private func cpuPreference() -> Bool { queueLock.lock(); defer { queueLock.unlock() }; return indexingCPU }
+    private func setDetails(_ value: String) { queueLock.lock(); details = value; queueLock.unlock() }
+    func inferenceDetails() -> String { queueLock.lock(); defer { queueLock.unlock() }; return details }
     private func enqueue(_ work: @escaping () async -> Void) {
         queueLock.lock()
         let predecessor = previous
@@ -82,7 +88,19 @@ final class SwiftRuntime: LocalRuntime, @unchecked Sendable {
         queueLock.unlock()
     }
     func load(search: Bool, path: String, callback: Completion) {
-        enqueue { do { try await self.worker.load(search: search, path: path); callback.success() } catch { callback.failure(message: error.localizedDescription) } }
+        enqueue {
+            do {
+                let cpu = self.cpuPreference()
+                try await self.worker.load(search: search, path: path, cpu: cpu)
+                #if targetEnvironment(simulator)
+                let backend = "CPU · 4 threads"
+                #else
+                let backend = cpu ? "CPU · 4 threads" : "GPU"
+                #endif
+                self.setDetails(search ? "CPU · 4 threads · 256-value embeddings" : "\(backend) · \(cpu ? 4096 : 8192)-token context · 512-token output limit")
+                callback.success()
+            } catch { callback.failure(message: error.localizedDescription) }
+        }
     }
     func embed(text: String, imagePath: String?, query: Bool, callback: VectorResult) {
         enqueue { do { let values = try await self.worker.embed(text: text, image: imagePath, query: query); callback.success(values: values.map { KotlinFloat(float: $0) }) } catch { callback.failure(message: error.localizedDescription) } }
@@ -90,6 +108,6 @@ final class SwiftRuntime: LocalRuntime, @unchecked Sendable {
     func answer(instructions: String, prompt: String, images: [String], callback: StreamResult) {
         enqueue { do { try await self.worker.answer(instructions: instructions, prompt: prompt, images: images, callback: callback); callback.success() } catch { callback.failure(message: error.localizedDescription) } }
     }
-    func release(callback: Completion) { enqueue { await self.worker.release(); callback.success() } }
+    func release(callback: Completion) { enqueue { await self.worker.release(); self.setDetails("No model loaded"); callback.success() } }
     func cancel() { Task { await worker.cancel() } }
 }
