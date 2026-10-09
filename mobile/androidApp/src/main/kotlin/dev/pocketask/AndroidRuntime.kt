@@ -26,7 +26,9 @@ class AndroidRuntime(private val cache: String) : LocalRuntime {
             embedding = EmbeddingEngine(EmbeddingEngineConfig(modelPath = path, backend = Backend.CPU(4), visionBackend = Backend.CPU(4), cacheDir = cache))
             embedding!!.initialize()
         } else {
-            generation = Engine(EngineConfig(modelPath = path, backend = Backend.GPU(), visionBackend = Backend.CPU(4), maxNumTokens = 8192, maxNumImages = 4, cacheDir = cache))
+            // GPU (Vulkan) crashes in Qualcomm's shader compiler on Adreno 750 / One UI 8,
+            // so generation runs on CPU. Revisit when the driver or litertlm fixes it.
+            generation = Engine(EngineConfig(modelPath = path, backend = Backend.CPU(4), visionBackend = Backend.CPU(4), maxNumTokens = 8192, maxNumImages = 4, cacheDir = cache))
             generation!!.initialize()
         }
         check(!cancelled.get()) { "Loading stopped." }
