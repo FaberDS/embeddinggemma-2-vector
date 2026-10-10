@@ -1,23 +1,30 @@
 package dev.pocketask
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import org.jetbrains.compose.resources.painterResource
+import pocketask.shared.generated.resources.Res
+import pocketask.shared.generated.resources.pocket_ask_logo
 
 private val Accent = Color(0xFF4C6758)
 
@@ -38,7 +45,7 @@ fun PocketAskApp(controller: AppController) {
                     topBar = {
                         Column {
                             Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Pocket Ask", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                Text("Locune", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                                 if (state.screen == "ask" && state.draft.conversationId != null) TextButton(onClick = controller::newQuestion, enabled = (state.stage == null || state.indexing != null) && !state.picking && !state.importing) { Text("New chat") }
                             }
                             ImportHeader(controller, state)
@@ -57,6 +64,7 @@ fun PocketAskApp(controller: AppController) {
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp))
             }
             state.memory?.let { MemoryDialog(controller, it, state) }
+            state.web?.let { WebImportDialog(controller, state, it) }
         }
     }
 }
@@ -115,20 +123,24 @@ private fun History(controller: AppController, state: UiState, modifier: Modifie
 
 @Composable
 private fun Onboarding(controller: AppController, state: UiState, models: Map<String, ModelState>) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        Spacer(Modifier.height(32.dp))
-        Text("Pocket Ask", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         if (state.onboarding == 0) {
-            Text("Ask privately.\nStay on your device.", style = MaterialTheme.typography.headlineLarge)
-            Text("Build your knowledge base with documents, images and notes. Every chat searches your saved sources and gives a short answer with citations.", style = MaterialTheme.typography.bodyLarge)
-            Text("After model setup, questions, attachments and history work offline.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.weight(1f))
-            Button(onClick = controller::introNext, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Continue") }
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically)) {
+                Image(painterResource(Res.drawable.pocket_ask_logo), contentDescription = "Locune logo",
+                    modifier = Modifier.size(128.dp).clip(RoundedCornerShape(28.dp)))
+                Text("Welcome to Locune", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                Text("Ask questions about your documents, images and notes. Get answers with sources, right on your device.",
+                    style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                Text("Private. Offline after model setup.", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+            Button(onClick = controller::introNext, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Choose models") }
         } else {
-            Text("Prepare offline models", style = MaterialTheme.typography.headlineMedium)
-            Text("Two local models, about ${formatBytes(controller.selectedModels().sumOf { it.bytes })} total. Download once; use offline afterward.")
+            Text("Set up your models", style = MaterialTheme.typography.headlineMedium)
+            Text("One model finds your sources; the other answers your questions. About ${formatBytes(controller.selectedModels().sumOf { it.bytes })} to download once.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) { ModelSetup(controller, state, models) }
-            TextButton(onClick = controller::finishOnboarding, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Later · keep preparing a draft") }
+            TextButton(onClick = controller::finishOnboarding, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Set up later") }
         }
     }
 }

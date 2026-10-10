@@ -26,6 +26,7 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            implementation(compose.components.resources)
             implementation("dev.chrisbanes.haze:haze:2.0.1")
             implementation("dev.chrisbanes.haze:haze-glass:2.0.1")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
@@ -33,6 +34,7 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
             implementation("com.squareup.okio:okio:3.16.4")
             implementation("io.ktor:ktor-client-core:3.5.2")
+            implementation("com.fleeksoft.ksoup:ksoup:0.2.6")
             implementation("app.cash.sqldelight:runtime:2.1.0")
             implementation("io.coil-kt.coil3:coil-compose:3.6.3")
         }

@@ -26,7 +26,7 @@ internal fun timingDuration(ms: Long): String {
 }
 
 internal fun telemetryText(answer: Answer, totalMs: Long, active: Boolean, zone: TimeZone = TimeZone.currentSystemDefault()): String = buildString {
-    appendLine("Pocket Ask · request telemetry")
+    appendLine("Locune · request telemetry")
     appendLine("Request: ${answer.id}")
     appendLine("Status: ${answer.status}${if (active) " (in progress)" else ""}")
     appendLine("Model: ${modelSpecs.firstOrNull { it.id == answer.modelId }?.title ?: answer.modelId ?: "Not recorded"}")

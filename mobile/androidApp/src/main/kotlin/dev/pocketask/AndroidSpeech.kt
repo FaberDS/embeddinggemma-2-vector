@@ -42,7 +42,7 @@ class AndroidSpeech(private val application: Application) : PlatformSpeech {
             val id = permissionToken
             if (id != generation.get()) return@registerForActivityResult
             if (allowed) startRecognition(id)
-            else failRecognition("Enable microphone access for Pocket Ask in Android Settings.")
+            else failRecognition("Enable microphone access for Locune in Android Settings.")
         }
     }
     override fun listen(callback: DictationResult) {

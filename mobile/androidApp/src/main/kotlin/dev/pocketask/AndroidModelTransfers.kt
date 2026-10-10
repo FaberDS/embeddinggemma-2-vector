@@ -24,7 +24,7 @@ class AndroidModelTransfers(private val application: Application) : ModelTransfe
         check(file(spec).parentFile!!.mkdirs() || file(spec).parentFile!!.isDirectory) { "Cannot create download folder." }
         val request = DownloadManager.Request(Uri.parse(spec.url))
             .setTitle(spec.title)
-            .setDescription("Pocket Ask · offline model")
+            .setDescription("Locune · offline model")
             .setMimeType("application/octet-stream")
             .setDestinationUri(Uri.fromFile(file(spec)))
             .setAllowedOverMetered(cellular)

@@ -10,7 +10,7 @@ struct PocketAskLiveActivity: Widget {
                 VoiceSymbol(state: context.state, stale: context.isStale)
                     .font(.title2).frame(width: 36)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Pocket Ask").font(.caption).foregroundStyle(.secondary)
+                    Text("Locune").font(.caption).foregroundStyle(.secondary)
                     Text(context.isStale ? "Open app for status" : context.state.phase.title).font(.headline)
                 }
                 Spacer(minLength: 8)
@@ -32,7 +32,7 @@ struct PocketAskLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Pocket Ask").font(.caption).foregroundStyle(.secondary)
+                            Text("Locune").font(.caption).foregroundStyle(.secondary)
                             Text(context.isStale ? "Open app for status" : context.state.phase.title).font(.headline)
                         }
                         Spacer()

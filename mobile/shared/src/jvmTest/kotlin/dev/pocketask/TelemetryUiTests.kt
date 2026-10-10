@@ -84,7 +84,7 @@ class TelemetryUiTests {
             onNodeWithTag("chat.timing.copy.timed").assertIsDisplayed().performClick()
             runOnIdle {
                 val exported = assertNotNull(clipboardText).text
-                assertContains(exported, "Pocket Ask · request telemetry")
+                assertContains(exported, "Locune · request telemetry")
                 assertContains(exported, "GPU · 1800 prompt characters")
                 assertContains(exported, "Total elapsed: 3.200 s")
             }

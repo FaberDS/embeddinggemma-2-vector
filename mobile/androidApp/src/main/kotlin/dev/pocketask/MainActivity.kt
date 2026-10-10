@@ -1,6 +1,7 @@
 package dev.pocketask
 
 import android.app.Application
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,7 +28,9 @@ class MainActivity : ComponentActivity() {
         model.inputs.attach(this)
         model.speech.attach(this)
         setContent { PocketAskApp(model.controller) }
+        model.inputs.receiveShare(intent, model.controller)
     }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); model.inputs.receiveShare(intent, model.controller) }
     override fun onStart() { super.onStart(); model.controller.foreground() }
     override fun onStop() { super.onStop(); if (!isChangingConfigurations) model.controller.background() }
 }

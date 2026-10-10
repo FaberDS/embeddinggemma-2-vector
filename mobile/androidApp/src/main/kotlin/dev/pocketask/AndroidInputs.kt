@@ -17,6 +17,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -53,14 +54,18 @@ class AndroidInputs(private val application: Application) : PlatformInputs, Docu
     private fun import(uris: List<Uri>, image: Boolean) {
         val callback = pending ?: return
         pending = null
+        import(uris, image, callback)
+    }
+    private fun import(uris: List<Uri>, image: Boolean, callback: ImportResult) {
         scope.launch {
             try {
                 val staging = File(application.filesDir, "staging").apply { mkdirs() }
                 uris.forEach { uri ->
+                    require(uri.scheme == "content") { "The shared file must come from a readable content provider." }
                     val name = application.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null } ?: "Attachment"
                     val target = File(staging, UUID.randomUUID().toString())
                     var type = application.contentResolver.getType(uri) ?: when (name.substringAfterLast('.').lowercase()) { "pdf" -> "application/pdf"; "md" -> "text/markdown"; else -> "text/plain" }
-                    if (image) {
+                    if (image || type.startsWith("image/")) {
                         val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(application.contentResolver, uri)) { decoder, info, _ ->
                             val factor = minOf(1.0, 1600.0 / max(info.size.width, info.size.height))
                             decoder.setTargetSize((info.size.width * factor).roundToInt().coerceAtLeast(1), (info.size.height * factor).roundToInt().coerceAtLeast(1))
@@ -77,6 +82,25 @@ class AndroidInputs(private val application: Application) : PlatformInputs, Docu
                 callback.success()
             } catch (e: Exception) { callback.failure(e.message ?: "The selection could not be imported.") }
         }
+    }
+    fun receiveShare(intent: Intent, controller: AppController) {
+        if (intent.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) return
+        val id = intent.getStringExtra("dev.pocketask.handoff") ?: UUID.randomUUID().toString().also { intent.putExtra("dev.pocketask.handoff", it) }
+        if (controller.receivedShare(id)) return
+        val uris = if (intent.action == Intent.ACTION_SEND_MULTIPLE) IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+            else listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+        if (uris.isEmpty()) {
+            val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim()
+            val url = text?.let { Regex("https?://[^\\s<>]+", RegexOption.IGNORE_CASE).find(it)?.value }
+            controller.receiveShare(id, url, emptyList(), if (url == null) "Share a PDF, image, or HTTP/HTTPS page URL." else null)
+            return
+        }
+        val items = mutableListOf<SharedFile>()
+        import(uris, intent.type?.startsWith("image/") == true, object : ImportResult {
+            override fun item(name: String, path: String, type: String) { items += SharedFile(name, path, type) }
+            override fun success() { scope.launch(Dispatchers.Main) { controller.receiveShare(id, null, items) } }
+            override fun failure(message: String) { items.forEach { File(it.path).delete() }; scope.launch(Dispatchers.Main) { controller.receiveShare(id, null, emptyList(), message) } }
+        })
     }
     override fun pageCount(attachment: Attachment, callback: CountResult) {
         scope.launch {
@@ -132,6 +156,11 @@ class AndroidInputs(private val application: Application) : PlatformInputs, Docu
         }
     }
     override fun open(path: String, page: Int) {
+        if (path.startsWith("https://", true) || path.startsWith("http://", true)) {
+            activity?.let { owner -> runCatching { owner.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(path))) }
+                .onFailure { android.widget.Toast.makeText(owner, "No browser is available to open this link.", android.widget.Toast.LENGTH_SHORT).show() } }
+            return
+        }
         val uri = FileProvider.getUriForFile(application, "${application.packageName}.files", File(path))
         val type = when (File(path).extension) { "pdf" -> "application/pdf"; "jpg" -> "image/jpeg"; else -> "text/plain" }
         val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).putExtra("page", page)

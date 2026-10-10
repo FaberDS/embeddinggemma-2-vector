@@ -1,4 +1,4 @@
-# Pocket Ask icon
+# Locune icon
 
 The selected Quiet P concept combines a rounded P with a speech-bubble counter.
 The production SVG redraws the selected draft with clean curves and solid colors:

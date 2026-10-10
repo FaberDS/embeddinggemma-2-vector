@@ -35,7 +35,8 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
     val assets = state.library.filter { source ->
         when (filter) {
             "Images" -> source.isImage
-            "Documents" -> !source.isImage && !source.isMemory
+            "Documents" -> !source.isImage && !source.isMemory && !source.isWebPage
+            "Web pages" -> source.isWebPage
             "Memories" -> source.isMemory
             else -> true
         }
@@ -53,6 +54,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                             DropdownMenuItem(text = { Text("Add files") }, onClick = { adding = false; controller.pick(false) })
                             DropdownMenuItem(text = { Text("Add images") }, onClick = { adding = false; controller.pick(true) })
                             DropdownMenuItem(text = { Text("Write text") }, onClick = { adding = false; writing = true })
+                            DropdownMenuItem(text = { Text("Insert link") }, onClick = { adding = false; controller.insertLink() })
                             DropdownMenuItem(text = { Text("Add memory") }, enabled = controller.speech.available, onClick = { adding = false; controller.startMemory() }, modifier = Modifier.testTag("memory.add"))
                         }
                     }
@@ -60,7 +62,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                 Text("${state.library.size} ${if (state.library.size == 1) "asset" else "assets"} · ${state.library.count { it.prepared || it.searchable }} searchable", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Available to every chat.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(listOf("All", "Images", "Documents", "Memories")) { category ->
+                    items(listOf("All", "Images", "Documents", "Memories", "Web pages")) { category ->
                         FilterChip(filter == category, { filter = category }, label = { Text(category, style = MaterialTheme.typography.labelMedium) }, modifier = Modifier.testTag("assets.filter.$category"))
                     }
                 }
@@ -73,7 +75,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                 Modifier.padding(vertical = 24.dp).testTag("assets.empty"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         items(assets, key = { it.id }, span = { if (it.isImage) GridItemSpan(1) else GridItemSpan(maxLineSpan) }) { source ->
-            AssetCard(source, busy, { controller.open(source.path) }, { removing = source })
+            AssetCard(source, busy, { controller.open(source.path) }, { removing = source }, { source.sourceUrl?.let { controller.open(it) } })
         }
         state.error?.let { error -> item(span = { GridItemSpan(maxLineSpan) }) { ErrorCard(error, controller::dismissError) } }
     }
@@ -82,10 +84,11 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
 }
 
 @Composable
-private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remove: () -> Unit) {
+private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remove: () -> Unit, openUrl: () -> Unit) {
     val kind = when {
         source.isMemory -> "Transcript"
         source.isImage -> "Image"
+        source.isWebPage -> "Web page"
         source.type == "application/pdf" -> "PDF"
         source.type == "text/markdown" -> "Markdown"
         source.type == "text/plain" -> "Text"
@@ -103,8 +106,13 @@ private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remov
                     Text("$kind · ${if (source.prepared) "Indexed" else if (source.searchable) "Text searchable · visual indexing pending" else "Waiting to index"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            if (source.isWebPage) {
+                source.sourceUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2) }
+                source.createdAt?.let { Text("Imported ${timingTimestamp(it)}", style = MaterialTheme.typography.labelSmall) }
+                TextButton(onClick = openUrl, modifier = Modifier.testTag("assets.url.${source.id}")) { Text("Open original URL") }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = open, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.testTag("assets.open.${source.id}")) { Text("Open") }
+                TextButton(onClick = open, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.testTag("assets.open.${source.id}")) { Text(if (source.isWebPage) "Saved content" else "Open") }
                 TextButton(onClick = remove, enabled = !busy, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.testTag("assets.remove.${source.id}")) { Text("Remove") }
             }
         }

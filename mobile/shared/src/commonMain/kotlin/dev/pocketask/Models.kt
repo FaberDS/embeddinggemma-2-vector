@@ -3,8 +3,9 @@ package dev.pocketask
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Attachment(val id: String, val name: String, val path: String, val type: String, val prepared: Boolean = false, val isMemory: Boolean = false, val createdAt: Long? = null, val searchable: Boolean = false) {
+data class Attachment(val id: String, val name: String, val path: String, val type: String, val prepared: Boolean = false, val isMemory: Boolean = false, val createdAt: Long? = null, val searchable: Boolean = false, val sourceUrl: String? = null) {
     val isImage get() = type.startsWith("image/")
+    val isWebPage get() = type == "text/x-web-page"
     val needsImageDescriptions get() = isImage || type == "application/pdf"
 }
 
@@ -28,6 +29,7 @@ data class ImageDescription(val text: String, val modelId: String)
 
 @Serializable
 data class PageInput(val text: String, val imagePath: String?, val ocr: String? = null)
+data class SharedFile(val name: String, val path: String, val type: String)
 data class ModelSpec(val id: String, val title: String, val filename: String, val url: String, val bytes: Long, val sha256: String, val detail: String = "")
 
 val modelSpecs = listOf(
@@ -47,7 +49,7 @@ data class UiState(val draft: Draft = Draft(), val history: List<Answer> = empty
     val answerModel: String = "answer", val onboarding: Int = 0, val screen: String = "ask", val stage: String? = null,
     val error: String? = null, val picking: Boolean = false, val importing: Boolean = false, val sourcesExpanded: Boolean = false, val memory: MemoryDraft? = null,
     val knowledge: KnowledgeStats? = null, val knowledgeLoading: Boolean = false, val knowledgeError: String? = null, val indexing: IndexingProgress? = null,
-    val importReport: ImportReport? = null, val telemetryEnabled: Boolean = false)
+    val importReport: ImportReport? = null, val telemetryEnabled: Boolean = false, val web: WebImport? = null)
 
 interface Completion { fun success(); fun failure(message: String) }
 interface VectorResult { fun success(values: List<Float>); fun failure(message: String) }

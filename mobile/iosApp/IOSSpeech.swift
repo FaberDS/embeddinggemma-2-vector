@@ -44,11 +44,11 @@ final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
                 guard let self, self.current(id) else { return }
-                guard status == .authorized else { self.failDictation("Enable Speech Recognition for Pocket Ask in iOS Settings."); return }
+                guard status == .authorized else { self.failDictation("Enable Speech Recognition for Locune in iOS Settings."); return }
                 AVAudioApplication.requestRecordPermission { allowed in
                     DispatchQueue.main.async {
                         guard self.current(id) else { return }
-                        guard allowed else { self.failDictation("Enable microphone access for Pocket Ask in iOS Settings."); return }
+                        guard allowed else { self.failDictation("Enable microphone access for Locune in iOS Settings."); return }
                         self.startRecognition(id)
                     }
                 }

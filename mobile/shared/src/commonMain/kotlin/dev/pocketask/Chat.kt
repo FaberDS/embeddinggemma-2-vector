@@ -22,6 +22,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -138,7 +141,8 @@ internal fun ModelMessage(answer: Answer, now: Long, stage: String?, onOpen: (St
         Surface(Modifier.fillMaxWidth(0.94f).testTag("chat.reply.${answer.id}"), shape = RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(modelSpecs.firstOrNull { it.id == answer.modelId }?.title ?: answer.modelId ?: "Local model", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Text(answer.text.ifBlank { answer.error ?: stage ?: if (answer.status == "Completed") "No answer was returned." else answer.status }, style = MaterialTheme.typography.bodyLarge)
+                val reply = answer.text.ifBlank { answer.error ?: stage ?: if (answer.status == "Completed") "No answer was returned." else answer.status }
+                Text(linkedAnswer(reply, TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))) { onOpen(it, 1) }, style = MaterialTheme.typography.bodyLarge)
                 if (answer.error != null && answer.text.isNotBlank()) Text(answer.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (answer.status == "Completed") ReplySources(answer, onOpen)
                 playbackStage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
@@ -231,6 +235,7 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
                         DropdownMenuItem(text = { Text("Add files") }, onClick = { actions = false; controller.pick(false) })
                         DropdownMenuItem(text = { Text("Add images") }, onClick = { actions = false; controller.pick(true) })
                         DropdownMenuItem(text = { Text("Write text") }, onClick = { actions = false; writing = true })
+                        DropdownMenuItem(text = { Text("Insert link") }, onClick = { actions = false; controller.insertLink() })
                         DropdownMenuItem(text = { Text("Add memory") }, enabled = controller.speech.available, onClick = { actions = false; keyboard?.hide(); controller.startMemory() }, modifier = Modifier.testTag("memory.add"))
                     }
                 }

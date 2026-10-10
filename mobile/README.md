@@ -1,9 +1,47 @@
-# Pocket Ask
+# Locune
 
 An Android/iOS app with a shared Compose Multiplatform UI. Import PDF, TXT and
 Markdown files, images and written notes into a persistent knowledge base. Every
 chat searches its indexed sources. Retrieval, generation, drafts and history run
 locally after the model downloads.
+
+## Web pages
+
+Choose **+ → Insert link**, enter an HTTP/HTTPS URL or explicitly tap **Paste
+from clipboard**, then **Preview**. The app fetches public HTML without cookies
+or JavaScript and shows the title, final URL and extracted article text. **Add
+and index** saves that text through the existing local indexing flow; Cancel
+adds nothing. Failed fetches, detected login/consent/access screens, unsupported
+content or encoding, empty extraction and oversized pages show a retryable error.
+Redirects and downloads are bounded; HTML is limited to 2 MB and UTF-8/ASCII.
+Device transport policy may reject plain HTTP; use the HTTPS version.
+
+Assets → **Web pages** separates these sources from documents. Each keeps its
+source URL and import time, with **Saved content** and **Open original URL**
+actions. Markdown links and plain HTTP/HTTPS URLs in replies open in the browser;
+local evidence citations keep their existing file actions.
+
+Android accepts shared PDFs, images and text containing a page URL, including
+new intents while running. Files use the existing importer; URLs wait for explicit
+preview and confirmation. Handoffs wait while busy and are deduplicated; unfinished
+URL drafts survive restart.
+
+On iOS, choose **Locune → Save** in the system Share sheet, then open Locune.
+The native Share extension copies PDFs and converts images to bounded JPEGs in a
+private App Group inbox; links open as editable web previews when the app becomes
+active. Each completed handoff is acknowledged only after import, so relaunches
+and repeat deliveries do not duplicate assets. Failed imports keep the inbox for
+retry on the next activation. Unsupported items, encrypted/damaged PDFs and
+unreadable files show an error. Each share accepts at most 50 items, with a
+100 MB limit per file. Cancelling the extension saves nothing.
+
+For signed device builds, enable **App Groups** on both `PocketAsk` and
+`PocketAskShare`, register `group.dev.denisschule.pocketask` with your signing
+team, and include it in both provisioning profiles. If you change the bundle IDs,
+update the group in `PocketAsk.entitlements` and `ShareInbox.swift` together.
+The extension reports missing group access explicitly; it does not attempt to
+force-launch the containing app. App Groups require a team that supports this
+capability. Both platforms support browser links and the in-app web import flow.
 
 ## Speech
 

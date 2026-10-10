@@ -68,7 +68,7 @@ final class IOSInputs: NSObject, PlatformInputs, DocumentInputs, UIDocumentPicke
             provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, error in
                 guard let url else { callback.failure(message: error?.localizedDescription ?? "This image could not be opened."); return }
                 do {
-                    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 1600, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary), let data = UIImage(cgImage: image).jpegData(compressionQuality: 0.9) else { throw CocoaError(.fileReadCorruptFile) }
+                    let data = try ShareInbox.imageData(url)
                     let target = try self.stagePath(); try data.write(to: target, options: .atomic)
                     callback.item(name: provider.suggestedName ?? "Image \(index + 1)", path: target.path, type: "image/jpeg")
                     self.work.async { next(index + 1) }
@@ -131,6 +131,10 @@ final class IOSInputs: NSObject, PlatformInputs, DocumentInputs, UIDocumentPicke
     }
     func open(path: String, page: Int32) {
         DispatchQueue.main.async {
+            if let url = URL(string: path), ["https", "http"].contains(url.scheme?.lowercased() ?? "") {
+                UIApplication.shared.open(url)
+                return
+            }
             let controller = SourceController(path: path, page: Int(page))
             self.presenter?.present(UINavigationController(rootViewController: controller), animated: true)
         }

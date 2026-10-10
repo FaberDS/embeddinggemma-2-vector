@@ -8,16 +8,21 @@
 
 /* Begin PBXBuildFile section */
 		0367010FF4A2B0F70862B273 /* StopVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DE13D66E818B197EAFE4DF /* StopVoiceIntent.swift */; };
+		0E49DD06FB1FF7093B73FB3C /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B124F49544BC1DCF17F99CE /* ShareViewController.swift */; };
 		17C04E3E5E16AFBEC646ADAE /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = 6018E07545EE523537FF920A /* LiteRTLM */; };
 		2201C5DB03E2D893E7EAF976 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09291EA5BCA95EEBB4059AC0 /* Foundation.framework */; };
 		24AB98197870FFB15506ED94 /* VoiceActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F33B86D2CC4801A1DE92BC2 /* VoiceActivityState.swift */; };
 		2AEE1CC342B7BB9FC0494E47 /* StopVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DE13D66E818B197EAFE4DF /* StopVoiceIntent.swift */; };
 		2CAFDF368023104EEC4DCF87 /* PocketAskLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B5F5CABB9E37E933F07A330C /* PocketAskLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2EB125225483C3EF62A7A560 /* IOSInputs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26F4B0804741CF02E804CFA1 /* IOSInputs.swift */; };
+		54FD719C1C33D47F50FDCBA0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09291EA5BCA95EEBB4059AC0 /* Foundation.framework */; };
 		5858334ABAFB585B66902E43 /* VoiceActivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24D0D9ADA3D9AB8A15145EA7 /* VoiceActivityTests.swift */; };
+		5C71D91977E02A847B536D42 /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04175BBF2243A1B79B77EAA3 /* ShareInbox.swift */; };
 		731523316C852B35752CB3CF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09291EA5BCA95EEBB4059AC0 /* Foundation.framework */; };
 		78350FEC493FA4DBA9E1EF26 /* PocketActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B25AAC21C3A6C90C7EDA1AF6 /* PocketActivityAttributes.swift */; };
+		8EE3C290DB7275A70911340A /* ShareInboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 266B22DF9771F627B023141A /* ShareInboxTests.swift */; };
 		9ECF9A653BEB0F1971DD0BB7 /* VoiceActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F33B86D2CC4801A1DE92BC2 /* VoiceActivityState.swift */; };
+		A3A39B32183D22FEDEBC2EB3 /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04175BBF2243A1B79B77EAA3 /* ShareInbox.swift */; };
 		AA0100000000000000000000 /* IOSSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200000000000000000000 /* IOSSpeech.swift */; };
 		AA0100000000000000000001 /* SupertonicHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200000000000000000001 /* SupertonicHelper.swift */; };
 		AA0100000000000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0200000000000000000002 /* Assets.xcassets */; };
@@ -26,10 +31,12 @@
 		BB0100000000000000000001 /* IOSIndexing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0200000000000000000001 /* IOSIndexing.swift */; };
 		BB0100000000000000000002 /* IOSOcr.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0200000000000000000002 /* IOSOcr.swift */; };
 		C9A1F9AA48B981532897E90D /* SwiftRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258F48E40151D91B975525B4 /* SwiftRuntime.swift */; };
+		CC0100000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = CC0200000000000000000001 /* PrivacyInfo.xcprivacy */; };
 		DA389A117D15F43306243C9E /* PocketActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B25AAC21C3A6C90C7EDA1AF6 /* PocketActivityAttributes.swift */; };
 		DD7D7BB28D8C448AE86BFA3C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09291EA5BCA95EEBB4059AC0 /* Foundation.framework */; };
 		E2B0BADD5F34B67FEE9E2978 /* PocketAskLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E95E2B0EB3941EFF17DAC40C /* PocketAskLiveActivity.swift */; };
 		F2365ABE2D67FFD228D83496 /* IOSModelTransfers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE53B97670C88F78D01937A4 /* IOSModelTransfers.swift */; };
+		F2C545C31B7AC99F2E3F25E6 /* PocketAskShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 3AA92E7C2ACAF2A19595FF83 /* PocketAskShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F844ABE3DD77761B6CE7867A /* PocketAskApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BDE5BBA1C6AA0F265C62206 /* PocketAskApp.swift */; };
 		FBD465BCDEB2EF2124ABEFBE /* IOSVoiceActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE3DAAFC5DE2D49F7CE7CC4 /* IOSVoiceActivities.swift */; };
 /* End PBXBuildFile section */
@@ -49,6 +56,13 @@
 			remoteGlobalIDString = DCD5E7FF0E9C06B10B6DC88F;
 			remoteInfo = PocketAskLiveActivity;
 		};
+		73EBBF734B6F6644AC83789A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DAF7ADED838C9A9613423386 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 90F6E5242B9AE4CF490D5A4A;
+			remoteInfo = PocketAskShare;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -59,6 +73,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				2CAFDF368023104EEC4DCF87 /* PocketAskLiveActivity.appex in Embed App Extensions */,
+				F2C545C31B7AC99F2E3F25E6 /* PocketAskShare.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -66,12 +81,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		04175BBF2243A1B79B77EAA3 /* ShareInbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareInbox.swift; sourceTree = "<group>"; };
 		09291EA5BCA95EEBB4059AC0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		0AE3DAAFC5DE2D49F7CE7CC4 /* IOSVoiceActivities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSVoiceActivities.swift; sourceTree = "<group>"; };
 		0F33B86D2CC4801A1DE92BC2 /* VoiceActivityState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceActivityState.swift; sourceTree = "<group>"; };
 		24D0D9ADA3D9AB8A15145EA7 /* VoiceActivityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceActivityTests.swift; sourceTree = "<group>"; };
 		258F48E40151D91B975525B4 /* SwiftRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SwiftRuntime.swift; sourceTree = "<group>"; };
+		266B22DF9771F627B023141A /* ShareInboxTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareInboxTests.swift; sourceTree = "<group>"; };
 		26F4B0804741CF02E804CFA1 /* IOSInputs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSInputs.swift; sourceTree = "<group>"; };
+		2B124F49544BC1DCF17F99CE /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		3AA92E7C2ACAF2A19595FF83 /* PocketAskShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PocketAskShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4BDE5BBA1C6AA0F265C62206 /* PocketAskApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PocketAskApp.swift; sourceTree = "<group>"; };
 		5C5D78537CB33BE48EA4D47C /* PocketAsk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PocketAsk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0200000000000000000000 /* IOSSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSSpeech.swift; sourceTree = "<group>"; };
@@ -79,14 +98,17 @@
 		AA0200000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0700000000000000000001 /* supertonic */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "../third-party/supertonic"; sourceTree = "<group>"; };
 		B25AAC21C3A6C90C7EDA1AF6 /* PocketActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PocketActivityAttributes.swift; sourceTree = "<group>"; };
+		B4639A8BEE3F82B87F4E277C /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B5F5CABB9E37E933F07A330C /* PocketAskLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PocketAskLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB0200000000000000000001 /* IOSIndexing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSIndexing.swift; sourceTree = "<group>"; };
 		BB0200000000000000000002 /* IOSOcr.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSOcr.swift; sourceTree = "<group>"; };
 		BE53B97670C88F78D01937A4 /* IOSModelTransfers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSModelTransfers.swift; sourceTree = "<group>"; };
+		CC0200000000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D4DE13D66E818B197EAFE4DF /* StopVoiceIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StopVoiceIntent.swift; sourceTree = "<group>"; };
 		DE5B099520869771B6FB90FE /* PocketAskNativeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PocketAskNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E48D56A6E8F44EE143EE8BFF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E95E2B0EB3941EFF17DAC40C /* PocketAskLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PocketAskLiveActivity.swift; sourceTree = "<group>"; };
+		F8472F85357417E8E3251A6E /* PocketAsk.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = PocketAsk.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +138,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FE49D908688339E76D490E94 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				54FD719C1C33D47F50FDCBA0 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -133,6 +163,7 @@
 				5C5D78537CB33BE48EA4D47C /* PocketAsk.app */,
 				B5F5CABB9E37E933F07A330C /* PocketAskLiveActivity.appex */,
 				DE5B099520869771B6FB90FE /* PocketAskNativeTests.xctest */,
+				3AA92E7C2ACAF2A19595FF83 /* PocketAskShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -145,9 +176,20 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		60A6A902946C480CDF686FFB /* ShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				2B124F49544BC1DCF17F99CE /* ShareViewController.swift */,
+				B4639A8BEE3F82B87F4E277C /* Info.plist */,
+			);
+			name = ShareExtension;
+			path = ShareExtension;
+			sourceTree = "<group>";
+		};
 		95FF883350016E17BA94A241 = {
 			isa = PBXGroup;
 			children = (
+				CC0200000000000000000001 /* PrivacyInfo.xcprivacy */,
 				AA0200000000000000000002 /* Assets.xcassets */,
 				AA0700000000000000000001 /* supertonic */,
 				AA0200000000000000000001 /* SupertonicHelper.swift */,
@@ -166,6 +208,9 @@
 				0AE3DAAFC5DE2D49F7CE7CC4 /* IOSVoiceActivities.swift */,
 				D1420720FE3BC83D3A749331 /* LiveActivity */,
 				D77C0105E5028FE365EBE28F /* NativeTests */,
+				04175BBF2243A1B79B77EAA3 /* ShareInbox.swift */,
+				60A6A902946C480CDF686FFB /* ShareExtension */,
+				F8472F85357417E8E3251A6E /* PocketAsk.entitlements */,
 			);
 			sourceTree = "<group>";
 		};
@@ -183,6 +228,7 @@
 			isa = PBXGroup;
 			children = (
 				24D0D9ADA3D9AB8A15145EA7 /* VoiceActivityTests.swift */,
+				266B22DF9771F627B023141A /* ShareInboxTests.swift */,
 			);
 			name = NativeTests;
 			path = NativeTests;
@@ -205,6 +251,7 @@
 			);
 			dependencies = (
 				1CFB39A1A1DB3A6E786ED9A8 /* PBXTargetDependency */,
+				541B400BFBEC89E52BD62566 /* PBXTargetDependency */,
 			);
 			name = PocketAsk;
 			packageProductDependencies = (
@@ -233,6 +280,23 @@
 			productReference = DE5B099520869771B6FB90FE /* PocketAskNativeTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		90F6E5242B9AE4CF490D5A4A /* PocketAskShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A4A1D82F768CD0E5275604DE /* Build configuration list for PBXNativeTarget "PocketAskShare" */;
+			buildPhases = (
+				76A5856FA49DB78A88A28A41 /* Sources */,
+				FE49D908688339E76D490E94 /* Frameworks */,
+				0640CDAF66A7087A482D89CE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PocketAskShare;
+			productName = PocketAskShare;
+			productReference = 3AA92E7C2ACAF2A19595FF83 /* PocketAskShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		DCD5E7FF0E9C06B10B6DC88F /* PocketAskLiveActivity */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 94825A9290CCBFDA23A109EA /* Build configuration list for PBXNativeTarget "PocketAskLiveActivity" */;
@@ -258,6 +322,22 @@
 			attributes = {
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					2514A200E0C83D6089FF8F17 = {
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
+					90F6E5242B9AE4CF490D5A4A = {
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
+				};
 			};
 			buildConfigurationList = A04054487159A8F699E68890 /* Build configuration list for PBXProject "PocketAsk" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -281,11 +361,19 @@
 				2514A200E0C83D6089FF8F17 /* PocketAsk */,
 				DCD5E7FF0E9C06B10B6DC88F /* PocketAskLiveActivity */,
 				7AC656586CBC014D99D11694 /* PocketAskNativeTests */,
+				90F6E5242B9AE4CF490D5A4A /* PocketAskShare */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		0640CDAF66A7087A482D89CE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6A65EF688F3E7C43E7A84F29 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -304,6 +392,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC0100000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
 				AA0100000000000000000002 /* Assets.xcassets in Resources */,
 				AA0600000000000000000001 /* supertonic in Resources */,
 			);
@@ -339,6 +428,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5858334ABAFB585B66902E43 /* VoiceActivityTests.swift in Sources */,
+				8EE3C290DB7275A70911340A /* ShareInboxTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -350,6 +440,15 @@
 				24AB98197870FFB15506ED94 /* VoiceActivityState.swift in Sources */,
 				DA389A117D15F43306243C9E /* PocketActivityAttributes.swift in Sources */,
 				2AEE1CC342B7BB9FC0494E47 /* StopVoiceIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		76A5856FA49DB78A88A28A41 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A3A39B32183D22FEDEBC2EB3 /* ShareInbox.swift in Sources */,
+				0E49DD06FB1FF7093B73FB3C /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -369,6 +468,7 @@
 				78350FEC493FA4DBA9E1EF26 /* PocketActivityAttributes.swift in Sources */,
 				0367010FF4A2B0F70862B273 /* StopVoiceIntent.swift in Sources */,
 				FBD465BCDEB2EF2124ABEFBE /* IOSVoiceActivities.swift in Sources */,
+				5C71D91977E02A847B536D42 /* ShareInbox.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -387,9 +487,38 @@
 			target = 2514A200E0C83D6089FF8F17 /* PocketAsk */;
 			targetProxy = 1FC587493C623E8463694365 /* PBXContainerItemProxy */;
 		};
+		541B400BFBEC89E52BD62566 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PocketAskShare;
+			target = 90F6E5242B9AE4CF490D5A4A /* PocketAskShare */;
+			targetProxy = 73EBBF734B6F6644AC83789A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		34302CA54DCBB0B6BB96CA64 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = PocketAsk.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 25M26744V5;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Locune;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.denisschule.pocketask.share;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		3CE909FEED7D17C5884A99C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -400,7 +529,7 @@
 				DEVELOPMENT_TEAM = 25M26744V5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveActivity/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Pocket Ask Voice";
+				INFOPLIST_KEY_CFBundleDisplayName = "Locune Voice";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MARKETING_VERSION = 0.1.0;
@@ -496,6 +625,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = PocketAsk.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 25M26744V5;
@@ -506,7 +636,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Pocket Ask";
+				INFOPLIST_KEY_CFBundleDisplayName = Locune;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -535,6 +665,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = PocketAsk.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 25M26744V5;
@@ -545,7 +676,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Pocket Ask";
+				INFOPLIST_KEY_CFBundleDisplayName = Locune;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -577,7 +708,7 @@
 				DEVELOPMENT_TEAM = 25M26744V5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveActivity/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Pocket Ask Voice";
+				INFOPLIST_KEY_CFBundleDisplayName = "Locune Voice";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MARKETING_VERSION = 0.1.0;
@@ -662,6 +793,30 @@
 			};
 			name = Release;
 		};
+		D1906886BBF48F52EE51C415 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = PocketAsk.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 25M26744V5;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Locune;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.denisschule.pocketask.share;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -688,6 +843,15 @@
 			buildConfigurations = (
 				4D267E61B87B51D4FE5B2C22 /* Debug */,
 				C52188270578DDBA0688A9D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A4A1D82F768CD0E5275604DE /* Build configuration list for PBXNativeTarget "PocketAskShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1906886BBF48F52EE51C415 /* Release */,
+				34302CA54DCBB0B6BB96CA64 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

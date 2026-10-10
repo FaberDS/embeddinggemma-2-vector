@@ -11,7 +11,7 @@ import okio.use
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class AppController(private val root: String, private val store: Store, private val runtime: LocalRuntime, private val inputs: PlatformInputs, transfers: ModelTransfers? = null, private val worker: CoroutineDispatcher = Dispatchers.Default, platformSpeech: PlatformSpeech? = null, private val indexingTasks: IndexingTasks? = null, initiallyActive: Boolean = true) {
+class AppController(private val root: String, private val store: Store, private val runtime: LocalRuntime, private val inputs: PlatformInputs, transfers: ModelTransfers? = null, private val worker: CoroutineDispatcher = Dispatchers.Default, platformSpeech: PlatformSpeech? = null, private val indexingTasks: IndexingTasks? = null, initiallyActive: Boolean = true, private val webFetcher: suspend (String) -> WebPage = { fetchWebPage(it) }) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val mutable = MutableStateFlow(UiState(draft = store.draft().copy(attachments = emptyList()), history = store.history(), library = store.library(root), answerModel = modelSpecs.firstOrNull { it.id != "search" && it.id == store.value("answer-model") }?.id ?: "answer", onboarding = if (store.value("onboarded") == "yes") 2 else 0, memory = store.memoryDraft(), telemetryEnabled = store.value("request-telemetry") == "yes"))
     val state = mutable.asStateFlow()
@@ -19,20 +19,25 @@ class AppController(private val root: String, private val store: Store, private 
     private var requestJob: Job? = null
     private var setupJob: Job? = null
     private var importJob: Job? = null
+    private var webJob: Job? = null
+    private var shareJob: Job? = null
     private var indexJob: Job? = null
     private var memoryJob: Job? = null
     private var knowledgeJob: Job? = null
     private var preloadJob: Job? = null
     private var runtimeCleanup: Job? = null
     private var loadedModel: ModelSpec? = null
-    private var active = initiallyActive
+    private val activeState = MutableStateFlow(initiallyActive)
+    private var active: Boolean
+        get() = activeState.value
+        set(value) { activeState.value = value }
     private var backgroundIndexing = false
     private var undo: List<Answer>? = null
     val speech = SpeechController(root, store, inputs, transfers, platformSpeech, scope,
         { state.value.draft.question }, ::question, { active && state.value.stage == null && !state.value.picking && !state.value.importing })
 
     init {
-        update { it.copy(importReport = store.savedImportReport()) }
+        update { it.copy(importReport = store.savedImportReport(), web = store.value("web-draft")?.takeIf { url -> url.isNotBlank() }?.let(::WebImport)) }
         saveDraft()
         scope.launch { models.observeTransfers() }
         scope.launch {
@@ -184,7 +189,76 @@ class AppController(private val root: String, private val store: Store, private 
         }
     }
 
-    private fun createTextSource(title: String, text: String): Attachment {
+    fun insertLink(url: String = "") {
+        if (state.value.stage != null || state.value.picking || state.value.importing) return
+        cancelWeb()
+        store.put("web-draft", value = url)
+        update { it.copy(web = WebImport(url), error = null) }
+    }
+    fun webInput(url: String) { if (webJob?.isActive != true) { store.put("web-draft", value = url); update { it.copy(web = it.web?.copy(url = url, page = null, error = null)) } } }
+    fun cancelWeb() { webJob?.cancel(); webJob = null; store.put("web-draft", value = ""); update { it.copy(web = null) } }
+    fun previewWeb() {
+        val draft = state.value.web ?: return
+        if (webJob?.isActive == true) return
+        val url = try { webUrl(draft.url) } catch (e: Exception) { update { it.copy(web = draft.copy(error = e.message)) }; return }
+        update { it.copy(web = draft.copy(loading = true, page = null, error = null)) }
+        webJob = scope.launch {
+            try {
+                val page = withContext(worker) { webFetcher(url) }
+                ensureActive()
+                update { it.copy(web = draft.copy(loading = false, page = page)) }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { update { it.copy(web = draft.copy(error = "${e.message ?: "Could not load this page."} Check your connection or URL and retry.")) } }
+        }
+    }
+    fun importWeb() {
+        val page = state.value.web?.page ?: return
+        if (state.value.stage != null || state.value.picking || state.value.importing) return
+        update { it.copy(importing = true, error = null) }
+        importJob = scope.launch {
+            try {
+                val attachment = withContext(worker) {
+                    createTextSource(page.title, "${page.title}\nSource: ${page.url}\n\n${page.text}", "text/x-web-page")
+                        .copy(name = page.title, sourceUrl = page.url, createdAt = inputs.now())
+                }
+                addSource(attachment)
+                cancelWeb()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { update { it.copy(web = it.web?.copy(error = e.message ?: "Could not save this page. Retry.")) } }
+            finally { update { it.copy(importing = false) }; indexAttachments(true) }
+        }
+    }
+
+    /** Queue native handoffs until import/answer controls are available; replayed handoffs are ignored. */
+    fun receivedShare(id: String) = store.value("received-share", id) == "yes"
+    fun receiveShare(id: String, url: String?, files: List<SharedFile>, error: String? = null, completed: (Boolean) -> Unit = {}) {
+        val previous = shareJob
+        shareJob = scope.launch {
+            previous?.join()
+            if (receivedShare(id)) { completed(true); return@launch }
+            combine(state, activeState) { current, active -> active && current.stage == null && !current.picking && !current.importing && current.web == null }.first { it }
+            if (error != null) { update { it.copy(error = error) }; completed(false); return@launch }
+            update { it.copy(importing = true, screen = "ask", error = null) }
+            var success = false
+            try {
+                require(files.isNotEmpty() || url != null) { "Share a PDF, image, or HTTP/HTTPS page URL." }
+                val validUrl = url?.let(::webUrl)
+                for (file in files) {
+                    require(file.path.startsWith("$root/staging/") && ".." !in file.path.toPath().segments) { "The shared file could not be read safely." }
+                    val attachment = withContext(worker) { importFile(file.name, file.path, file.type) }
+                    addSource(attachment)
+                }
+                validUrl?.let { store.put("web-draft", value = it) }
+                update { it.copy(web = validUrl?.let { value -> WebImport(value) }) }
+                store.put("received-share", id, "yes")
+                success = true
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { update { it.copy(error = e.message ?: "The shared content could not be imported.") } }
+            finally { update { it.copy(importing = false) }; indexAttachments(true); completed(success) }
+        }
+    }
+
+    private fun createTextSource(title: String, text: String, type: String = "text/markdown"): Attachment {
         val content = text.encodeToByteArray()
         require(content.size <= 20_000_000) { "Text larger than 20 MB must be split before import." }
         require(inputs.freeBytes() > content.size + 32_000_000) { "Not enough storage to save this text." }
@@ -192,7 +266,7 @@ class AppController(private val root: String, private val store: Store, private 
         FileSystem.SYSTEM.createDirectories(staging.parent!!)
         FileSystem.SYSTEM.write(staging) { write(content) }
         val name = title.trim().replace('/', '-').replace('\\', '-').ifBlank { "Note" }.take(100).removeSuffix(".md") + ".md"
-        return importFile(name, staging.toString(), "text/markdown")
+        return importFile(name, staging.toString(), type)
     }
 
     private fun setMemory(memory: MemoryDraft?) {
@@ -276,7 +350,7 @@ class AppController(private val root: String, private val store: Store, private 
     }
 
     private fun importFile(name: String, path: String, type: String): Attachment {
-        require(type in listOf("application/pdf", "text/plain", "text/markdown", "image/jpeg", "image/png", "image/heic")) { "$name: unsupported file type. Choose PDF, TXT, Markdown or an image." }
+        require(type in listOf("application/pdf", "text/plain", "text/markdown", "text/x-web-page", "image/jpeg", "image/png", "image/heic")) { "$name: unsupported file type. Choose PDF, TXT, Markdown or an image." }
         val fs = FileSystem.SYSTEM
         val input = path.toPath()
         val size = fs.metadata(input).size ?: 0
