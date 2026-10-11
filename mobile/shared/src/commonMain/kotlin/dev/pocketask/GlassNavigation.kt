@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -32,9 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
-import dev.chrisbanes.haze.*
-import dev.chrisbanes.haze.glass.GlassStyle
-import dev.chrisbanes.haze.glass.hazeGlass
 import kotlin.math.roundToInt
 
 private val NavigationShape = RoundedCornerShape(32.dp)
@@ -70,21 +69,9 @@ private val destinations = listOf(
     }),
 )
 
-@OptIn(ExperimentalHazeApi::class)
 @Composable
-internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: HazeState, modifier: Modifier = Modifier) {
+internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    val style = remember(colors.surface) {
-        GlassStyle.regular.then {
-            shape(NavigationShape)
-            backgroundColor(colors.surface)
-            tint(colors.surface.copy(alpha = 0.55f))
-        }
-    }
-    val selectorStyle = remember(style) { style.then { shape(SelectorShape) } }
-    val glassInput = remember(haze) {
-        HazeInput.Sources(haze, retention = HazeSourceRetention.ClearWhenUnavailable)
-    }
     val selectedIndex = destinations.indexOfFirst { it.first == screen || (it.first == "history" && screen == "detail") }.coerceAtLeast(0)
     var dragging by remember { mutableStateOf<Float?>(null) }
     val position by animateFloatAsState(dragging ?: selectedIndex.toFloat(),
@@ -95,7 +82,8 @@ internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: H
     val density = LocalDensity.current
     BoxWithConstraints(modifier.widthIn(max = 360.dp).fillMaxWidth().height(64.dp)
         .shadow(12.dp, NavigationShape, clip = false)
-        .hazeGlass(glassInput, style)
+        .background(colors.surfaceContainer, NavigationShape)
+        .border(1.dp, colors.outlineVariant, NavigationShape)
         .clip(NavigationShape).selectableGroup().testTag("navigation")) {
         val tabWidth = (maxWidth - 12.dp - 4.dp * (destinations.size - 1)) / destinations.size
         val step = with(density) { (tabWidth + 4.dp).toPx() }
@@ -120,7 +108,7 @@ internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: H
             val physical = if (rtl) destinations.lastIndex - logical else logical
             Box(Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset { IntOffset((physical * step).roundToInt(), 0) }
                 .width(tabWidth).fillMaxHeight()
-                .hazeGlass(glassInput, selectorStyle).clip(SelectorShape).testTag("navigation.selector"))
+                .background(colors.primaryContainer, SelectorShape).clip(SelectorShape).testTag("navigation.selector"))
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 destinations.forEachIndexed { index, (route, label, icon) ->
                     val selected = selectedIndex == index
@@ -139,7 +127,7 @@ internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: H
     }
 }
 
-private fun lineIcon(name: String, path: PathBuilder.() -> Unit): ImageVector =
+internal fun lineIcon(name: String, path: PathBuilder.() -> Unit): ImageVector =
     ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
         path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.8f,
             strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round, pathBuilder = path)

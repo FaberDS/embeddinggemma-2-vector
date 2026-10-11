@@ -2,8 +2,9 @@
 
 An Android/iOS app with a shared Compose Multiplatform UI. Import PDF, TXT and
 Markdown files, images and written notes into a persistent library. Create or
-select a project in the header, then use each item's **Projects** control in
-Assets to assign it to zero, one or multiple projects. Imports start unassigned.
+select a project in the header, then tap an item's project pill in
+Assets to assign it to zero, one or multiple projects. Files and images added
+from a chat join its selected project; Assets imports start unassigned.
 Every chat belongs to one project and searches only its assigned indexed items;
 shared items reuse the same content and vectors. Retrieval, generation, drafts
 and history run locally after the model downloads. This version requires a clean
@@ -126,18 +127,22 @@ and durable checkpoints remain available.
 
 A compact header below the app title shows the current import/indexing step and
 its estimated remaining time. Pull the header down or tap it to expand the import
-panel; swipe up or tap again to collapse it. It stays available across all tabs.
+panel; swipe up or tap again to collapse it. Active and paused imports stay available across tabs.
 The panel groups completed, active and upcoming stages under a single heading per
 asset, with committed page counts, and opens at the current asset. Pause keeps completed
 pages searchable; Resume continues from the checkpoints. Missing answer models
 offer a Settings action instead of repeatedly retrying the visual pass.
 
-The latest import's stage archive persists after completion and app relaunch.
+For batches with multiple items, the header shows finished items / total items;
+completed and skipped stages both count toward a finished item. Completion closes
+the expanded panel, which can be reopened until you switch tabs. Switching tabs
+dismisses a completed report across app relaunch; the next import shows progress again.
 An interrupted active stage restores as paused. The estimate applies only to the
 current stage and appears after enough new pages finish; model loading and steps
 without samples show an estimating state. It is not an estimate for the whole
-multi-stage batch. Text/Markdown have only a text stage; PDF/images also show OCR,
-image vectors, descriptions and description vectors in the actual text-first order.
+multi-stage batch. Text/Markdown have only a text stage. PDFs show page reading,
+text and OCR stages, followed by image vectors, descriptions and description vectors.
+Images omit the embedded-text stage. Empty text/OCR stages are marked skipped.
 
 ## Settings and index details
 
@@ -232,14 +237,17 @@ asking a question. Model initialization is shown separately from download progre
 Ask is a conversation with a bottom composer, user bubbles on the right and
 model replies on the left. The dark + button opens Add files, Add images, Write text and Add memory; the supported formats remain PDF, TXT, Markdown and images. The
 project-source summary opens membership management without filling the conversation
-with every imported image. The Assets tab shows the entire knowledge base, with All, Images, Documents and Memories filters. Images use a thumbnail gallery; documents and memory transcripts open their original files. Indexed and pending assets remain visible, and removal requires confirmation. A floating glass pill replaces the
-stock bottom bar, with line icons and safe-area spacing. Taps slide a shared
+with every imported image. The Assets tab shows the entire knowledge base, with All,
+Images, Documents, Memories and Web pages filters. Full-width rows use compact
+thumbnails, readable filenames and neutral project pills. Tap a row to open it;
+its action menu offers Open, the original web URL when applicable, and Remove.
+Indexed and pending assets remain visible, and removal requires confirmation.
+A floating opaque navigation pill uses line icons and safe-area spacing. Taps slide a shared
 selector with a spring animation; horizontal drags follow the finger and snap
 to the nearest tab on release. Screens switch once on release, and interrupted
 gestures restore the active tab. The gesture respects right-to-left layouts.
-It hides while the keyboard is open; lists can scroll behind the glass while the
-composer stays clear of it. The shared renderer uses Haze Glass 2.0.1 with its
-automatic simplified rendering when advanced effects are unavailable.
+It hides while the keyboard is open; its solid background conceals scrolling
+content, and the composer stays clear of it.
 Compose 1.12.1, Kotlin 2.4.20 and Coil 3.6.3 keep its UI dependencies aligned.
 Android compiles against SDK 37 with AGP 9.1.1; the runtime minimum remains
 Android 12 and the target SDK remains 36.
@@ -439,7 +447,6 @@ Model compatibility: [Google's current LiteRT-LM catalog](https://developers.goo
 Background transfers: [Apple URLSession](https://developer.apple.com/documentation/foundation/downloading-files-in-the-background),
 [Android DownloadManager](https://developer.android.com/reference/android/app/DownloadManager).
 
-Glass rendering: [Haze Glass](https://chrisbanes.github.io/haze/latest/effects/glass/).
 
 For a real native speech smoke test on macOS, pass a directory containing the
 verified Supertonic `onnx` and `voice_styles` folders:

@@ -232,8 +232,8 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
                 Box {
                     FilledIconButton(onClick = { actions = true }, enabled = !busy, colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF303833), contentColor = Color.White), modifier = Modifier.testTag("chat.addSource").semantics { contentDescription = "Add source" }) { Text("+", style = MaterialTheme.typography.titleLarge) }
                     DropdownMenu(actions, { actions = false }) {
-                        DropdownMenuItem(text = { Text("Add files") }, onClick = { actions = false; controller.pick(false) })
-                        DropdownMenuItem(text = { Text("Add images") }, onClick = { actions = false; controller.pick(true) })
+                        DropdownMenuItem(text = { Text("Add files") }, onClick = { actions = false; controller.pick(false, state.draft.projectId) })
+                        DropdownMenuItem(text = { Text("Add images") }, onClick = { actions = false; controller.pick(true, state.draft.projectId) })
                         DropdownMenuItem(text = { Text("Write text") }, onClick = { actions = false; writing = true })
                         DropdownMenuItem(text = { Text("Insert link") }, onClick = { actions = false; controller.insertLink() })
                         DropdownMenuItem(text = { Text("Add memory") }, enabled = controller.speech.available, onClick = { actions = false; keyboard?.hide(); controller.startMemory() }, modifier = Modifier.testTag("memory.add"))

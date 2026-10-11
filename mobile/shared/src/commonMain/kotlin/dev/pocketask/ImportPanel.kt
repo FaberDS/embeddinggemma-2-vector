@@ -27,10 +27,12 @@ import androidx.compose.ui.unit.dp
 internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step: String?, copying: Boolean,
     onPause: () -> Unit, onResume: () -> Unit, canResume: Boolean = true) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(report.status) { if (report.status == "Completed") expanded = false }
     val threshold = with(LocalDensity.current) { 28.dp.toPx() }
     val active = progress != null || copying
     val listState = rememberLazyListState()
     val groups = remember(report.stages) { report.stages.groupBy { it.assetId }.values.toList() }
+    val completedItems = groups.count { stages -> stages.all { it.status == ImportStageStatus.Completed || it.status == ImportStageStatus.Skipped } }
     val focusedAsset = report.stages.firstOrNull { it.status == ImportStageStatus.Active || it.status == ImportStageStatus.Paused || it.status == ImportStageStatus.Failed }?.assetId
     LaunchedEffect(expanded, focusedAsset) {
         val group = groups.indexOfFirst { it.first().assetId == focusedAsset }
@@ -45,6 +47,7 @@ internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step
         progress?.remainingSeconds != null && current == progress.phase -> "${formatRemaining(progress.remainingSeconds)} in this step"
         active -> "Estimating this step…"
         report.status == "Completed" -> "Saved to your knowledge base"
+        report.status == "Waiting to index" -> "Tap for indexing and model setup"
         else -> "Completed work is saved"
     }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), shape = RoundedCornerShape(18.dp),
@@ -68,6 +71,8 @@ internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step
                     Text(estimate, Modifier.testTag("import.estimate"), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                if (groups.size > 1) Text("$completedItems/${groups.size} items", Modifier.testTag("import.items"),
+                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Text(if (expanded) "⌃" else "⌄", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             AnimatedVisibility(expanded) {
@@ -78,7 +83,11 @@ internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step
                         if (progress != null) TextButton(onClick = onPause, modifier = Modifier.testTag("import.pause")) { Text("Pause") }
                         else if (!copying && (report.status != "Completed" || report.stages.any { it.status != ImportStageStatus.Completed && it.status != ImportStageStatus.Skipped }))
                             TextButton(onClick = onResume, enabled = canResume, modifier = Modifier.testTag("import.resume")) {
-                                Text(if (report.status == "Waiting for answer model") "Set up model" else "Resume")
+                                Text(when (report.status) {
+                                    "Waiting for answer model" -> "Set up model"
+                                    "Waiting to index" -> "Continue"
+                                    else -> "Resume"
+                                })
                             }
                     }
                     if (progress?.background == true) Text("Can continue in the background", Modifier.padding(horizontal = 14.dp), style = MaterialTheme.typography.bodySmall)

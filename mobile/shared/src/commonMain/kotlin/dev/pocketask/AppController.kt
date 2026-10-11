@@ -139,7 +139,15 @@ class AppController(private val root: String, private val store: Store, private 
         val source = store.setMembership(sourceId, projectId, included)
         update { it.copy(library = it.library.map { item -> if (item.id == sourceId) source else item }) }
     }
-    fun screen(name: String) { pauseMemoryRecording(); if (speech.state.value.listening) speech.stop(); update { it.copy(screen = name, error = null) } }
+    fun screen(name: String) {
+        pauseMemoryRecording()
+        if (speech.state.value.listening) speech.stop()
+        val current = state.value
+        val dismissImport = current.screen != name && current.importReport?.status == "Completed" &&
+            current.indexing == null && !current.importing && !current.picking
+        if (dismissImport) store.put("import-report", value = "")
+        update { it.copy(screen = name, error = null, importReport = if (dismissImport) null else it.importReport) }
+    }
     fun settings() = screen("settings")
     fun telemetry(enabled: Boolean) {
         store.put("request-telemetry", value = if (enabled) "yes" else "no")
@@ -174,7 +182,7 @@ class AppController(private val root: String, private val store: Store, private 
         cleanUnused(removed)
     }
 
-    fun pick(images: Boolean) {
+    fun pick(images: Boolean, projectId: String? = null) {
         if (state.value.picking || state.value.importing || state.value.stage != null) return
         update { it.copy(picking = true, error = null) }
         val imports = Channel<Triple<String, String, String>>(Channel.UNLIMITED)
@@ -183,7 +191,7 @@ class AppController(private val root: String, private val store: Store, private 
                 for ((name, path, type) in imports) {
                     update { it.copy(importing = true) }
                     val attachment = withContext(worker) { importFile(name, path, type) }
-                    addSource(attachment)
+                    addSource(attachment, projectId)
                 }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { update { it.copy(error = e.message ?: "Could not import the selection.") } }
@@ -364,10 +372,14 @@ class AppController(private val root: String, private val store: Store, private 
         }
     }
 
-    private fun addSource(attachment: Attachment) {
+    private fun addSource(attachment: Attachment, projectId: String? = null) {
         if (state.value.library.none { it.id == attachment.id }) {
             store.saveSource(attachment)
             update { it.copy(library = it.library + attachment) }
+        }
+        if (projectId != null) {
+            val assigned = store.setMembership(attachment.id, projectId, true)
+            update { it.copy(library = it.library.map { source -> if (source.id == assigned.id) assigned else source }) }
         }
     }
 

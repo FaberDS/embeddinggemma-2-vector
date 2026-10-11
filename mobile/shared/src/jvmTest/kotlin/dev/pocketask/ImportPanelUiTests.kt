@@ -24,6 +24,15 @@ class ImportPanelUiTests {
     private val asset = Attachment("report", "Research report.pdf", "/report.pdf", "application/pdf")
     private val report = ImportReport(importStages(listOf(asset), mapOf(asset.id to IndexCheckpoint(100, 100, ocr = 42)), asset.id, "Indexing recognized text"), "Indexing")
 
+    @Test fun waitingImportsExplainTheNextStepAndOfferAnAction() = runComposeUiTest {
+        var resumed = false
+        setContent { MaterialTheme { ImportPanel(ImportReport(importStages(listOf(asset), emptyMap())), null, null, false, {}, { resumed = true }) } }
+        onNodeWithTag("import.estimate", useUnmergedTree = true).assertTextEquals("Tap for indexing and model setup")
+        onNodeWithTag("import.header").performClick()
+        onNodeWithTag("import.resume").assertTextEquals("Continue").performClick()
+        runOnIdle { assertTrue(resumed) }
+    }
+
     @Test fun headerShowsCurrentStepAndPhaseEstimateAndTappingRevealsThePipeline() = runComposeUiTest {
         var pauses = 0
         setContent {
@@ -33,6 +42,7 @@ class ImportPanelUiTests {
             } }
         }
         onNodeWithTag("import.estimate", useUnmergedTree = true).assertTextEquals("About 2 min left in this step")
+        onNodeWithTag("import.items").assertDoesNotExist()
         onNodeWithTag("import.panel").assertDoesNotExist()
         onNodeWithTag("import.header").performClick()
         onNodeWithTag("import.panel").assertIsDisplayed()
@@ -120,5 +130,35 @@ class ImportPanelUiTests {
         onNodeWithTag("import.header").performClick()
         onNodeWithTag("import.resume").performClick()
         runOnIdle { assertTrue(resumed) }
+    }
+
+    @Test fun multiItemCountTracksFinishedItemsAndCompletionCollapsesThePanel() = runComposeUiTest {
+        val photo = Attachment("photo", "Photo.jpg", "/photo.jpg", "image/jpeg")
+        val assets = listOf(asset, photo)
+        var checkpoints = mapOf(asset.id to IndexCheckpoint(4, text = 4, ocr = 4), photo.id to IndexCheckpoint(1))
+        var current by mutableStateOf(ImportReport(importStages(assets, checkpoints), "Indexing"))
+        setContent { MaterialTheme {
+            ImportPanel(current, if (current.status == "Indexing") IndexingProgress("Indexing page images", 0, 4, 8, 25) else null,
+                null, false, {}, {})
+        } }
+        onNodeWithTag("import.items", useUnmergedTree = true).assertTextEquals("0/2 items")
+        onNodeWithTag("import.header").performClick()
+        onNodeWithTag("import.panel").assertIsDisplayed()
+        runOnIdle {
+            checkpoints = checkpoints + (asset.id to IndexCheckpoint(4, 4, 4, 4, 4, 4, skippedText = 4, skippedOcr = 4))
+            current = current.copy(stages = importStages(assets, checkpoints))
+        }
+        onNodeWithTag("import.items", useUnmergedTree = true).assertTextEquals("1/2 items")
+        runOnIdle { current = current.copy(status = "Paused") }
+        onNodeWithTag("import.panel").assertIsDisplayed()
+        runOnIdle {
+            checkpoints = checkpoints + (photo.id to IndexCheckpoint(1, 1, 1, 1, 1, 1, skippedOcr = 1))
+            current = ImportReport(importStages(assets, checkpoints), "Completed")
+        }
+        onNodeWithTag("import.items", useUnmergedTree = true).assertTextEquals("2/2 items")
+        onNodeWithTag("import.panel").assertDoesNotExist()
+        onNodeWithTag("import.header").performClick()
+        onNodeWithTag("import.panel").assertIsDisplayed()
+        onNodeWithTag("import.resume").assertDoesNotExist()
     }
 }

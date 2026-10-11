@@ -3,13 +3,16 @@ package dev.pocketask
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
@@ -55,23 +58,56 @@ class AssetsUiTests {
         val pdf = source("3-pdf", "Garden guide.pdf", "application/pdf")
         val memory = source("2-memory", "Garden ideas.md", "text/markdown", memory = true)
         val note = source("1-note", "Plans.md", "text/markdown", prepared = false)
+        db.saveProject(Project("garden", "Garden research with a long project name"))
+        db.setMembership(rose.id, "test-project", true)
+        db.setMembership(rose.id, "garden", true)
         val controller = AppController(root.path, db, runtime, inputs)
+        var width by mutableStateOf(390.dp)
+        var fontScale by mutableStateOf(1f)
         try {
-            setContent { Box(Modifier.width(390.dp).height(844.dp).testTag("assets.preview")) { PocketAskApp(controller) } }
+            setContent {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                    Box(Modifier.width(width).height(844.dp).testTag("assets.preview")) { PocketAskApp(controller) }
+                }
+            }
             onNodeWithTag("chat.input").performTextInput("A chat draft to keep")
             onNodeWithTag("navigation.assets").performClick().assertIsSelected()
             onNodeWithText("Your assets").assertIsDisplayed()
             onNodeWithText("5 assets · 4 searchable").assertIsDisplayed()
             onNodeWithTag("assets.filter.All").assertIsSelected()
+            onNodeWithTag("assets.grid").performScrollToIndex(1)
             val first = onNodeWithTag("assets.item.${rose.id}").fetchSemanticsNode().boundsInRoot
             val second = onNodeWithTag("assets.item.${tulip.id}").fetchSemanticsNode().boundsInRoot
-            assertEquals(first.top, second.top); assertTrue(first.right < second.left)
+            assertEquals(first.left, second.left); assertEquals(first.right, second.right)
+            assertTrue(second.top >= first.bottom)
+            onNodeWithTag("assets.projects.${rose.id}").assertTextEquals("Test project").performClick()
+            onNodeWithTag("assets.membership.test-project").assertIsOn()
+            onNodeWithTag("assets.membership.garden").assertIsOn()
+            onNodeWithText("Done").performClick()
+            onNodeWithTag("assets.projects.${rose.id}.1").assertTextEquals("Garden research with a long project name")
+            val pill = onNodeWithTag("assets.projects.${rose.id}.1").fetchSemanticsNode().boundsInRoot
+            assertTrue(pill.left >= first.left && pill.right <= first.right)
+            onNodeWithTag("assets.remove.${rose.id}").assertDoesNotExist()
+            onNodeWithContentDescription("Actions for Rose.png").assertIsDisplayed().performClick()
+            onNodeWithTag("assets.remove.${rose.id}").assertIsDisplayed()
+            onNodeWithTag("assets.open.${rose.id}").performClick()
+            runOnIdle { assertEquals(rose.path to 1, inputs.opened.last()) }
+            onNodeWithTag("project.select").performMouseInput { moveTo(center) }
             val pixels = onNodeWithTag("assets.preview").captureToImage().toPixelMap()
             val screenshot = BufferedImage(pixels.width, pixels.height, BufferedImage.TYPE_INT_ARGB)
             for (y in 0 until pixels.height) for (x in 0 until pixels.width) screenshot.setRGB(x, y, pixels[x, y].toArgb())
             ImageIO.write(screenshot, "png", File("/private/tmp/pocketask-assets-preview.png"))
+            runOnIdle { width = 320.dp; fontScale = 1.4f }
+            onNodeWithTag("assets.actions.${rose.id}").performScrollTo().assertIsDisplayed()
+            val narrowCard = onNodeWithTag("assets.item.${rose.id}").fetchSemanticsNode().boundsInRoot
+            val action = onNodeWithTag("assets.actions.${rose.id}").fetchSemanticsNode().boundsInRoot
+            val narrowPill = onNodeWithTag("assets.projects.${rose.id}.1").fetchSemanticsNode().boundsInRoot
+            assertTrue(action.width >= 48 * density.density && action.right <= narrowCard.right, "Action $action in card $narrowCard at density ${density.density}")
+            assertTrue(narrowPill.left >= narrowCard.left && narrowPill.right <= narrowCard.right)
+            runOnIdle { width = 390.dp; fontScale = 1f }
             onNodeWithTag("assets.grid").performScrollToIndex(1)
-            onNodeWithTag("assets.open.${rose.id}").performScrollTo().performClick()
+            onNodeWithTag("assets.item.${rose.id}").performScrollTo().performClick()
             runOnIdle { assertEquals(rose.path to 1, inputs.opened.last()) }
             onNodeWithTag("assets.grid").performScrollToIndex(0)
             onNodeWithTag("assets.filter.Documents").performScrollTo().performClick().assertIsSelected()
@@ -79,7 +115,7 @@ class AssetsUiTests {
             onNodeWithTag("assets.item.${memory.id}").assertDoesNotExist()
             onNodeWithText("Garden guide.pdf").assertIsDisplayed()
             onNodeWithText("Markdown · Waiting to index").assertIsDisplayed()
-            onNodeWithTag("assets.open.${pdf.id}").performClick()
+            onNodeWithTag("assets.item.${pdf.id}").performClick()
             runOnIdle { assertEquals(pdf.path to 1, inputs.opened.last()) }
             onNodeWithTag("assets.grid").performScrollToIndex(0)
             onNodeWithTag("assets.filter.Memories").performScrollTo().performClick().assertIsSelected()
@@ -87,11 +123,13 @@ class AssetsUiTests {
             onNodeWithText("Transcript · Indexed").assertIsDisplayed()
             onNodeWithTag("assets.item.${pdf.id}").assertDoesNotExist()
             onNodeWithTag("assets.item.${note.id}").assertDoesNotExist()
-            onNodeWithTag("assets.open.${memory.id}").performClick()
+            onNodeWithTag("assets.item.${memory.id}").performClick()
             runOnIdle { assertEquals(memory.path to 1, inputs.opened.last()) }
+            onNodeWithTag("assets.actions.${memory.id}").performClick()
             onNodeWithTag("assets.remove.${memory.id}").performClick()
             onNodeWithText("Keep source").performClick()
             runOnIdle { assertEquals(5, controller.state.value.library.size) }
+            onNodeWithTag("assets.actions.${memory.id}").performClick()
             onNodeWithTag("assets.remove.${memory.id}").performClick()
             onNodeWithTag("knowledge.remove").performClick()
             onNodeWithTag("assets.empty").assertTextEquals("No memories yet.")
