@@ -326,14 +326,22 @@ not a snapshot of the whole library. Completed text pages from an unfinished PDF
 are searchable; unreadable or unfinished steps stay pending. Asking during visual
 indexing pauses that work, answers from saved passages, then resumes enrichment.
 
-PDF indexing extracts and embeds text first. Pages with fewer than 40 readable
-letters/digits are rendered for OCR during this pass; pages with sufficient embedded
+PDF indexing extracts and embeds text first. iOS reuses one PDFKit document across
+page reads and releases temporary rendering/OCR objects after each page. Empty
+recognized-text work is committed with the text checkpoint when possible, avoiding
+a second empty recognized-text indexing pass for selectable-text PDFs. Pages with
+fewer than 40 readable letters/digits are rendered for OCR during this pass; pages with sufficient embedded
 text avoid rendering until the later visual pass. Recognized text, page images,
 descriptions and description vectors have separate resumable checkpoints. SQLite
 commits each page's vectors and its checkpoint together. Cached extraction and
 completed descriptions survive interruptions, including process restarts. Resume
 retries only the unfinished page/step. Progress shows the current phase and page
 count; remaining time estimates use pages completed during the current phase.
+Extraction shows **Reading pages**, photos omit embedded-text indexing, and stages
+with no text or recognized text are explicitly **Skipped**. Text files, notes,
+memories and saved web pages show only text indexing. PDFs retain page-image
+indexing and descriptions, including text-rich pages that may contain diagrams.
+Skip metadata survives restart and appears in the completed import archive.
 
 
 On-device OCR runs during ingestion using Apple Vision on iOS and bundled ML Kit

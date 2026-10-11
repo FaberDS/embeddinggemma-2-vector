@@ -33,4 +33,37 @@ class ImportProgressTests {
         assertEquals(6, stages.size)
         assertTrue(stages.all { it.status == ImportStageStatus.Completed })
     }
+
+    @Test fun photosOmitEmbeddedTextAndTextOnlySourcesOmitVisualStages() {
+        val photo = Attachment("photo", "Photo.jpg", "/photo.jpg", "image/jpeg")
+        assertEquals(listOf("Indexing recognized text", "Indexing page images", "Describing pages", "Indexing descriptions"),
+            importStages(listOf(photo), emptyMap()).map { it.phase })
+        for (type in listOf("text/plain", "text/markdown", "text/x-web-page")) {
+            assertEquals(listOf("Indexing text"), importStages(listOf(note.copy(type = type)), emptyMap()).map { it.phase })
+        }
+    }
+
+    @Test fun blankPdfTextAndUnneededOcrAreSkippedWithoutHidingVisualWork() {
+        val stages = importStages(listOf(pdf), mapOf(pdf.id to IndexCheckpoint(100, text = 100, ocr = 100, skippedText = 100, skippedOcr = 100)))
+        assertTrue(stages.take(2).all { it.status == ImportStageStatus.Skipped })
+        assertTrue(stages.drop(2).all { it.status == ImportStageStatus.Pending })
+    }
+
+    @Test fun readingPagesIsActiveOnlyWhileExtractionIsRunning() {
+        val stages = importStages(listOf(pdf), mapOf(pdf.id to IndexCheckpoint(100, text = 42)), pdf.id, "Reading pages")
+        assertEquals("Reading pages", stages.single { it.status == ImportStageStatus.Active }.phase)
+        assertEquals(42, stages.first().completed)
+        assertEquals(ImportStageStatus.Pending, stages[1].status)
+        assertTrue(importStages(listOf(pdf), emptyMap()).none { it.phase == "Reading pages" })
+    }
+
+    @Test fun olderCheckpointsAndReportsDecodeWithoutSkipMetadata() {
+        assertEquals(IndexCheckpoint(1, text = 1), json.decodeFromString<IndexCheckpoint>("""{"pages":1,"text":1}"""))
+        assertEquals(0, json.decodeFromString<ImportReport>("""{"stages":[{"assetId":"pdf","assetName":"Report.pdf","phase":"Indexing text","completed":1,"total":1,"status":"Completed"}]}""").stages.single().skipped)
+    }
+
+    @Test fun readingForAnOcrUpgradeUsesTheOcrPageRatherThanTheFinishedTextCount() {
+        val stages = importStages(listOf(pdf), mapOf(pdf.id to IndexCheckpoint(100, text = 100)), pdf.id, "Reading pages", activeCompleted = 3)
+        assertEquals(3, stages.single { it.status == ImportStageStatus.Active }.completed)
+    }
 }

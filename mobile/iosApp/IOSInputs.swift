@@ -16,6 +16,7 @@ final class IOSInputs: NSObject, PlatformInputs, DocumentInputs, UIDocumentPicke
     private let pathLock = NSLock()
     private var online = false
     private var expensive = true
+    private let pdfReader = PDFReader()
 
     override init() {
         super.init()
@@ -85,7 +86,7 @@ final class IOSInputs: NSObject, PlatformInputs, DocumentInputs, UIDocumentPicke
     func pageCount(attachment: Attachment, callback: CountResult) {
         work.async {
             if attachment.type == "application/pdf" {
-                guard let pdf = PDFDocument(url: URL(fileURLWithPath: attachment.path)), !pdf.isLocked else { callback.failure(message: "\(attachment.name): this PDF is damaged or encrypted."); return }
+                guard let pdf = self.pdfReader.document(at: URL(fileURLWithPath: attachment.path)), !pdf.isLocked else { callback.failure(message: "\(attachment.name): this PDF is damaged or encrypted."); return }
                 callback.success(count: Int32(pdf.pageCount))
             } else { callback.success(count: 1) }
         }
@@ -101,32 +102,34 @@ final class IOSInputs: NSObject, PlatformInputs, DocumentInputs, UIDocumentPicke
     }
     private func readPage(attachment: Attachment, page: Int32, callback: PageResult, text: Bool, visual: Bool) {
         work.async {
-            do {
-                let path = URL(fileURLWithPath: attachment.path)
-                let result: PageInput
-                if attachment.isImage { result = PageInput(text: "", imagePath: attachment.path, ocr: text ? try IOSOcr.recognize(path) : nil) }
-                else if attachment.type == "application/pdf" {
-                    guard let document = PDFDocument(url: path), !document.isLocked, let source = document.page(at: Int(page)) else { throw CocoaError(.fileReadCorruptFile) }
-                    let imagePath = path.deletingLastPathComponent().appendingPathComponent("page-\(page).jpg")
-                    let embedded = text ? (source.string ?? "") : ""
-                    let needsOcr = text && OcrPolicy.shared.needsRecognition(text: embedded)
-                    if (visual || needsOcr) && !FileManager.default.fileExists(atPath: imagePath.path) {
-                        let bounds = source.bounds(for: .mediaBox)
-                        let scale = 1400 / max(bounds.width, bounds.height)
-                        let image = source.thumbnail(of: CGSize(width: bounds.width * scale, height: bounds.height * scale), for: .mediaBox)
-                        guard let data = image.jpegData(compressionQuality: 0.9) else { throw CocoaError(.fileReadCorruptFile) }
-                        try data.write(to: imagePath, options: .atomic)
+            autoreleasepool {
+                do {
+                    let path = URL(fileURLWithPath: attachment.path)
+                    let result: PageInput
+                    if attachment.isImage { result = PageInput(text: "", imagePath: attachment.path, ocr: text ? try IOSOcr.recognize(path) : nil) }
+                    else if attachment.type == "application/pdf" {
+                        guard let document = self.pdfReader.document(at: path), !document.isLocked, let source = document.page(at: Int(page)) else { throw CocoaError(.fileReadCorruptFile) }
+                        let imagePath = path.deletingLastPathComponent().appendingPathComponent("page-\(page).jpg")
+                        let embedded = text ? (source.string ?? "") : ""
+                        let needsOcr = text && OcrPolicy.shared.needsRecognition(text: embedded)
+                        if (visual || needsOcr) && !FileManager.default.fileExists(atPath: imagePath.path) {
+                            let bounds = source.bounds(for: .mediaBox)
+                            let scale = 1400 / max(bounds.width, bounds.height)
+                            let image = source.thumbnail(of: CGSize(width: bounds.width * scale, height: bounds.height * scale), for: .mediaBox)
+                            guard let data = image.jpegData(compressionQuality: 0.9) else { throw CocoaError(.fileReadCorruptFile) }
+                            try data.write(to: imagePath, options: .atomic)
+                        }
+                        let recognized = needsOcr ? try IOSOcr.recognize(imagePath) : ""
+                        result = PageInput(text: embedded, imagePath: (visual || needsOcr) ? imagePath.path : nil,
+                            ocr: text ? OcrPolicy.shared.additionalText(embedded: embedded, recognized: recognized) : nil)
+                    } else {
+                        let size = try FileManager.default.attributesOfItem(atPath: attachment.path)[.size] as? NSNumber
+                        guard (size?.intValue ?? 0) <= 20_000_000 else { callback.failure(message: "Text files larger than 20 MB must be split before import."); return }
+                        result = PageInput(text: try String(contentsOf: path, encoding: .utf8), imagePath: nil, ocr: nil)
                     }
-                    let recognized = needsOcr ? try IOSOcr.recognize(imagePath) : ""
-                    result = PageInput(text: embedded, imagePath: (visual || needsOcr) ? imagePath.path : nil,
-                        ocr: text ? OcrPolicy.shared.additionalText(embedded: embedded, recognized: recognized) : nil)
-                } else {
-                    let size = try FileManager.default.attributesOfItem(atPath: attachment.path)[.size] as? NSNumber
-                    guard (size?.intValue ?? 0) <= 20_000_000 else { callback.failure(message: "Text files larger than 20 MB must be split before import."); return }
-                    result = PageInput(text: try String(contentsOf: path, encoding: .utf8), imagePath: nil, ocr: nil)
-                }
-                callback.success(page: result)
-            } catch { callback.failure(message: "\(attachment.name): \(error.localizedDescription)") }
+                    callback.success(page: result)
+                } catch { callback.failure(message: "\(attachment.name): \(error.localizedDescription)") }
+            }
         }
     }
     func open(path: String, page: Int32) {
@@ -168,5 +171,19 @@ private final class SourceController: UIViewController {
         }
         content.translatesAutoresizingMaskIntoConstraints = false; view.addSubview(content)
         NSLayoutConstraint.activate([content.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor), content.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor), content.leadingAnchor.constraint(equalTo: view.leadingAnchor), content.trailingAnchor.constraint(equalTo: view.trailingAnchor)])
+    }
+}
+
+/// Used only on IOSInputs' serial queue; retain one immutable imported PDF at a time.
+final class PDFReader {
+    private var url: URL?
+    private var cached: PDFDocument?
+
+    func document(at url: URL) -> PDFDocument? {
+        if self.url != url || cached == nil {
+            cached = PDFDocument(url: url)
+            self.url = url
+        }
+        return cached
     }
 }

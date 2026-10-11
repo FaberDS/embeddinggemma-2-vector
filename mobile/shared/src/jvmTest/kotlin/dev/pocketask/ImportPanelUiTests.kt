@@ -104,6 +104,15 @@ class ImportPanelUiTests {
         onAllNodesWithText("Done").assertCountEquals(5)
     }
 
+    @Test fun skippedStagesAreExplicitAndDoNotOfferResumeForCompletedImports() = runComposeUiTest {
+        val skipped = ImportReport(importStages(listOf(asset), mapOf(asset.id to IndexCheckpoint(100, 100, 100, 100, 100, 100, skippedText = 60, skippedOcr = 100))), "Completed")
+        setContent { MaterialTheme { ImportPanel(skipped, null, null, false, {}, {}) } }
+        onNodeWithTag("import.header").performClick()
+        onNodeWithText("Skipped").assertIsDisplayed()
+        onNodeWithText("40/40").assertIsDisplayed()
+        onNodeWithTag("import.resume").assertDoesNotExist()
+    }
+
     @Test fun pausingAfterTheLastPageStillAllowsFinalizationToResume() = runComposeUiTest {
         var resumed = false
         val paused = report.copy(status = "Paused", stages = report.stages.map { it.copy(completed = it.total, status = ImportStageStatus.Completed) })
