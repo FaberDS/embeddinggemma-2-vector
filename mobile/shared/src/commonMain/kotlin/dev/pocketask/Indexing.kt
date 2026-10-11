@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 import kotlin.math.ceil
 
 @Serializable
-data class IndexCheckpoint(val pages: Int, val text: Int = 0, val images: Int = 0, val descriptions: Int = 0, val captions: Int = 0, val ocr: Int = 0) {
+data class IndexCheckpoint(val pages: Int, val text: Int = 0, val images: Int = 0, val descriptions: Int = 0, val captions: Int = 0, val ocr: Int = 0,
+    val skippedText: Int = 0, val skippedOcr: Int = 0) {
     val completed get() = text + images + descriptions + captions + ocr
 }
 

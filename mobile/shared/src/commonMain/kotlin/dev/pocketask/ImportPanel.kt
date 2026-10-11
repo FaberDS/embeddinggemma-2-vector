@@ -76,7 +76,7 @@ internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step
                     Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Import progress", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         if (progress != null) TextButton(onClick = onPause, modifier = Modifier.testTag("import.pause")) { Text("Pause") }
-                        else if (!copying && (report.status != "Completed" || report.stages.any { it.status != ImportStageStatus.Completed }))
+                        else if (!copying && (report.status != "Completed" || report.stages.any { it.status != ImportStageStatus.Completed && it.status != ImportStageStatus.Skipped }))
                             TextButton(onClick = onResume, enabled = canResume, modifier = Modifier.testTag("import.resume")) {
                                 Text(if (report.status == "Waiting for answer model") "Set up model" else "Resume")
                             }
@@ -112,6 +112,7 @@ private fun ImportStageRow(stage: ImportStage) {
         if (stage.status == ImportStageStatus.Active) CircularProgressIndicator(Modifier.padding(top = 3.dp).size(14.dp), strokeWidth = 2.dp)
         else Text(when (stage.status) {
             ImportStageStatus.Completed -> "✓"
+            ImportStageStatus.Skipped -> "–"
             ImportStageStatus.Paused -> "Ⅱ"
             ImportStageStatus.Failed -> "!"
             else -> "○"
@@ -122,10 +123,11 @@ private fun ImportStageRow(stage: ImportStage) {
                 ImportStageStatus.Pending -> "Upcoming"
                 ImportStageStatus.Active -> "Active"
                 ImportStageStatus.Completed -> "Done"
+                ImportStageStatus.Skipped -> "Skipped"
                 ImportStageStatus.Paused -> "Paused"
                 ImportStageStatus.Failed -> "Retry"
             }, style = MaterialTheme.typography.labelSmall, color = color)
-            if (stage.total > 0) Text("${stage.completed}/${stage.total}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (stage.total > 0 && stage.status != ImportStageStatus.Skipped) Text("${stage.completed - stage.skipped}/${stage.total - stage.skipped}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

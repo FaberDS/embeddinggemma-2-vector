@@ -4,11 +4,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 
 @Serializable
-enum class ImportStageStatus { Pending, Active, Completed, Paused, Failed }
+enum class ImportStageStatus { Pending, Active, Completed, Skipped, Paused, Failed }
 
 @Serializable
 data class ImportStage(val assetId: String, val assetName: String, val phase: String, val completed: Int,
-    val total: Int, val status: ImportStageStatus) {
+    val total: Int, val status: ImportStageStatus, val skipped: Int = 0) {
     val id get() = "$assetId:$phase"
 }
 
@@ -17,12 +17,14 @@ data class ImportReport(val stages: List<ImportStage> = emptyList(), val status:
 
 /** Follow the actual text-first pipeline; completed work comes from committed checkpoints. */
 internal fun importStages(assets: List<Attachment>, checkpoints: Map<String, IndexCheckpoint>,
-    activeAsset: String? = null, activePhase: String? = null, failed: Set<String> = emptySet()): List<ImportStage> {
+    activeAsset: String? = null, activePhase: String? = null, failed: Set<String> = emptySet(), activeCompleted: Int? = null): List<ImportStage> {
     val stages = assets.flatMap { asset ->
         val saved = checkpoints[asset.id]
         buildList {
-            add(ImportStage(asset.id, asset.name, "Indexing text", saved?.text ?: 0, saved?.pages ?: 0, ImportStageStatus.Pending))
-            if (asset.needsImageDescriptions) add(ImportStage(asset.id, asset.name, "Indexing recognized text", saved?.ocr ?: 0, saved?.pages ?: 0, ImportStageStatus.Pending))
+            if (asset.id == activeAsset && activePhase == "Reading pages")
+                add(ImportStage(asset.id, asset.name, "Reading pages", activeCompleted ?: saved?.text ?: 0, saved?.pages ?: 0, ImportStageStatus.Active))
+            if (!asset.isImage) add(ImportStage(asset.id, asset.name, "Indexing text", saved?.text ?: 0, saved?.pages ?: 0, ImportStageStatus.Pending, saved?.skippedText ?: 0))
+            if (asset.needsImageDescriptions) add(ImportStage(asset.id, asset.name, "Indexing recognized text", saved?.ocr ?: 0, saved?.pages ?: 0, ImportStageStatus.Pending, saved?.skippedOcr ?: 0))
         }
     } + assets.filter { it.needsImageDescriptions }.flatMap { asset ->
         val saved = checkpoints[asset.id]
@@ -32,6 +34,7 @@ internal fun importStages(assets: List<Attachment>, checkpoints: Map<String, Ind
     }
     val failedStages = failed.mapNotNull { id -> stages.firstOrNull { it.assetId == id && (it.total == 0 || it.completed < it.total) }?.id }.toSet()
     return stages.map { stage -> stage.copy(status = when {
+        stage.total > 0 && stage.skipped == stage.total -> ImportStageStatus.Skipped
         stage.total > 0 && stage.completed >= stage.total -> ImportStageStatus.Completed
         stage.id in failedStages -> ImportStageStatus.Failed
         stage.assetId == activeAsset && stage.phase == activePhase -> ImportStageStatus.Active

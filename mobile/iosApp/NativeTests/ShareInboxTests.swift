@@ -10,6 +10,46 @@ final class ShareInboxTests: XCTestCase {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+    @MainActor
+    func testPDFReaderReusesOneDocumentAcrossHundredPagesAndReplacesItForAnotherImport() throws {
+        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let first = directory.appendingPathComponent("first.pdf")
+        let second = directory.appendingPathComponent("second.pdf")
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 200, height: 200))
+        for url in [first, second] {
+            try renderer.writePDF(to: url) { context in
+                for page in 0..<100 {
+                    context.beginPage()
+                    ("Page \(page + 1)" as NSString).draw(at: CGPoint(x: 20, y: 20), withAttributes: nil)
+                }
+            }
+        }
+        let baselineStart = Date()
+        let baseline = (0..<100).map { page -> String? in
+            guard let document = PDFDocument(url: first) else { return nil }
+            return document.page(at: page)?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let baselineSeconds = Date().timeIntervalSince(baselineStart)
+        let cachedStart = Date()
+        let reader = PDFReader()
+        let original = try XCTUnwrap(reader.document(at: first))
+        let cached = (0..<100).map { reader.document(at: first)?.page(at: $0)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let cachedSeconds = Date().timeIntervalSince(cachedStart)
+        XCTAssertEqual(cached, baseline)
+        print("100-page PDF text reads: reopen per page = \(baselineSeconds)s; reuse document = \(cachedSeconds)s")
+        XCTAssertEqual(original.pageCount, 100)
+        for page in 0..<100 {
+            XCTAssertTrue(reader.document(at: first) === original)
+            XCTAssertTrue(original.page(at: page)?.string?.contains("Page \(page + 1)") == true)
+        }
+        XCTAssertFalse(reader.document(at: second) === original)
+        let missing = directory.appendingPathComponent("missing.pdf")
+        XCTAssertNil(reader.document(at: missing))
+        try FileManager.default.copyItem(at: first, to: missing)
+        XCTAssertEqual(reader.document(at: missing)?.pageCount, 100)
+        XCTAssertNotNil(reader.document(at: first))
+    }
+
     private func fileProvider(_ url: URL, type: UTType) -> NSItemProvider {
         let provider = NSItemProvider()
         provider.suggestedName = url.lastPathComponent

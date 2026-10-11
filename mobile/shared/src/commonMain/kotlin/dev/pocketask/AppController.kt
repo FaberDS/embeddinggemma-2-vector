@@ -443,8 +443,8 @@ class AppController(private val root: String, private val store: Store, private 
                     val totalUnits = attachments.sumOf { checkpoints.getValue(it.id).pages.toLong() * if (it.needsImageDescriptions) 5 else 1 }
                     val estimate = IndexEstimate()
                     val failed = mutableSetOf<String>()
-                    fun report(asset: String? = null, phase: String? = null) {
-                        val value = ImportReport(importStages(attachments, checkpoints, asset, phase, failed), "Indexing")
+                    fun report(asset: String? = null, phase: String? = null, completed: Int? = null) {
+                        val value = ImportReport(importStages(attachments, checkpoints, asset, phase, failed, completed), "Indexing")
                         update { it.copy(importReport = value) }
                     }
                     report()
@@ -452,17 +452,17 @@ class AppController(private val root: String, private val store: Store, private 
                         val checkpoint = checkpoints.getValue(attachment.id)
                         val value = IndexingProgress(phase, completed, checkpoint.pages,
                             checkpoints.values.sumOf { it.completed.toLong() }, totalUnits,
-                            estimate.remaining("${attachment.id}:$phase", completed, checkpoint.pages, inputs.now()), backgroundIndexing)
+                            if (phase == "Reading pages") null else estimate.remaining("${attachment.id}:$phase", completed, checkpoint.pages, inputs.now()), backgroundIndexing)
                         stage("$phase · ${attachment.name} · $completed/${checkpoint.pages}")
                         update { it.copy(indexing = value) }; indexingTasks?.progress(value)
-                        report(attachment.id, phase)
+                        report(attachment.id, phase, completed)
                     }
                     suspend fun commit(attachment: Attachment, checkpoint: IndexCheckpoint, evidence: List<Evidence>) {
                         currentCoroutineContext().ensureActive()
                         store.commitPage(attachment, checkpoint, evidence)
                         checkpoints[attachment.id] = checkpoint
                         refresh(attachment)
-                        report(attachment.id, state.value.indexing?.phase)
+                        report(attachment.id, state.value.indexing?.phase, state.value.indexing?.completed)
                         state.value.importReport?.let(store::saveImportReport)
                     }
                     val errors = mutableListOf<String>()
@@ -472,49 +472,54 @@ class AppController(private val root: String, private val store: Store, private 
                             var checkpoint = checkpoints.getValue(attachment.id)
                             for (page in checkpoint.text until checkpoint.pages) {
                                 currentCoroutineContext().ensureActive()
-                                progress(attachment, "Indexing text", page)
-                                if (!attachment.isImage) load(modelSpecs[0])
                                 val cached = store.pageInput(attachment, page)
+                                if (cached == null) progress(attachment, "Reading pages", page)
                                 val input = cached ?: if (attachment.isImage && inputs !is DocumentInputs) PageInput("", attachment.path, "") else awaitPage {
                                     val reader = inputs as? DocumentInputs
                                     if (reader != null) reader.readTextPage(attachment, page, it) else inputs.readPage(attachment, page, it)
                                 }
                                 currentCoroutineContext().ensureActive()
                                 store.savePageInput(attachment, page, if (cached == null && attachment.needsImageDescriptions) input.copy(ocr = input.ocr.orEmpty()) else input)
-                                val evidence = textChunks(input.text).mapIndexed { chunk, text ->
+                                val chunks = textChunks(input.text)
+                                if (chunks.isNotEmpty()) { progress(attachment, "Indexing text", page); load(modelSpecs[0]) }
+                                val evidence = chunks.mapIndexed { chunk, text ->
                                     val vector = awaitVector { runtime.embed(text, null, false, it) }
                                     Evidence("${attachment.id}-$page-t$chunk", attachment.id, attachment.name,
                                         if (attachment.type == "application/pdf") page + 1 else null, text, null, normalize(vector))
                                 }
-                                checkpoint = checkpoint.copy(text = page + 1)
+                                // Empty OCR needs no second transaction or model pass.
+                                val skipOcr = attachment.needsImageDescriptions && checkpoint.ocr == page && (cached == null || input.ocr != null) && input.ocr.orEmpty().isBlank()
+                                checkpoint = checkpoint.copy(text = page + 1, skippedText = checkpoint.skippedText + if (chunks.isEmpty()) 1 else 0,
+                                    ocr = if (skipOcr) page + 1 else checkpoint.ocr, skippedOcr = checkpoint.skippedOcr + if (skipOcr) 1 else 0)
                                 commit(attachment, checkpoint, evidence)
-                                progress(attachment, "Indexing text", page + 1)
+                                if (!attachment.isImage) progress(attachment, "Indexing text", page + 1)
                             }
                             if (attachment.needsImageDescriptions) {
                                 for (page in checkpoint.ocr until checkpoint.pages) {
                                     currentCoroutineContext().ensureActive()
-                                    progress(attachment, "Indexing recognized text", page)
                                     val cached = store.pageInput(attachment, page)
+                                    if (cached?.ocr == null) progress(attachment, "Reading pages", page)
                                     val input = if (cached?.ocr != null) cached else if (inputs is DocumentInputs) awaitPage {
                                         inputs.readTextPage(attachment, page, it)
                                     } else cached ?: awaitPage { inputs.readPage(attachment, page, it) }
                                     currentCoroutineContext().ensureActive()
                                     val recognized = OcrPolicy.additionalText(input.text, input.ocr.orEmpty())
-                                    store.savePageInput(attachment, page, input.copy(ocr = recognized))
+                                    if (cached?.ocr != recognized) store.savePageInput(attachment, page, input.copy(ocr = recognized))
                                     val chunks = textChunks(recognized)
-                                    if (chunks.isNotEmpty()) load(modelSpecs[0])
+                                    if (chunks.isNotEmpty()) { progress(attachment, "Indexing recognized text", page); load(modelSpecs[0]) }
                                     val evidence = chunks.mapIndexed { chunk, text ->
                                         val vector = awaitVector { runtime.embed(text, null, false, it) }
                                         Evidence("${attachment.id}-$page-ocr$chunk", attachment.id, attachment.name,
                                             if (attachment.type == "application/pdf") page + 1 else null, text, null,
                                             normalize(vector), input.imagePath ?: cached?.imagePath ?: attachment.path.takeIf { attachment.isImage }, "ocr")
                                     }
-                                    checkpoint = checkpoint.copy(ocr = page + 1)
+                                    checkpoint = checkpoint.copy(ocr = page + 1, skippedOcr = checkpoint.skippedOcr + if (chunks.isEmpty()) 1 else 0)
                                     commit(attachment, checkpoint, evidence)
-                                    progress(attachment, "Indexing recognized text", page + 1)
+                                    if (chunks.isNotEmpty()) progress(attachment, "Indexing recognized text", page + 1)
                                 }
                             }
                             if (!attachment.needsImageDescriptions) { store.markPrepared(attachment); refresh(attachment) }
+                            report()
                         } catch (e: CancellationException) { throw e }
                         catch (e: Exception) { failed += attachment.id; report(); errors += e.message ?: "Could not read ${attachment.name}." }
                     }

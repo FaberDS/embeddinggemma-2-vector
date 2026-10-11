@@ -88,11 +88,12 @@ private class IngestionRuntime : LocalRuntime {
 }
 
 private class TextFirstInputs : IngestionInputs(), DocumentInputs {
+    var pageInputs = emptyMap<Int, PageInput>()
     val textPages = mutableListOf<Int>()
     val imagePages = mutableListOf<Int>()
     override fun readTextPage(attachment: Attachment, page: Int, callback: PageResult) {
         textPages += page
-        callback.success(PageInput("Searchable passage on page ${page + 1}", null))
+        callback.success(pageInputs[page] ?: PageInput("Searchable passage on page ${page + 1}", null))
     }
     override fun readImagePage(attachment: Attachment, page: Int, callback: PageResult) {
         imagePages += page
@@ -551,7 +552,8 @@ class IngestionTests {
             val images = db.evidence(pdf.id, 0).filter { it.image != null }.sortedBy { it.page }
             assertContains(controller.state.value.stage!!, "Describing")
             val liveReport = controller.state.value.importReport!!
-            assertEquals(3, liveReport.stages.count { it.status == ImportStageStatus.Completed })
+            assertEquals(2, liveReport.stages.count { it.status == ImportStageStatus.Completed })
+            assertEquals(ImportStageStatus.Skipped, liveReport.stages.single { it.phase == "Indexing recognized text" }.status)
             assertEquals("Describing pages", liveReport.stages.single { it.status == ImportStageStatus.Active }.phase)
             assertEquals(1, liveReport.stages.single { it.status == ImportStageStatus.Active }.completed)
             assertNotNull(db.imageDescription(images[0])); assertNull(db.imageDescription(images[1]))
@@ -566,7 +568,7 @@ class IngestionTests {
             controller.foreground(); advanceUntilIdle()
             assertTrue(db.prepared(pdf))
             assertEquals("Completed", controller.state.value.importReport!!.status)
-            assertTrue(controller.state.value.importReport!!.stages.all { it.status == ImportStageStatus.Completed })
+            assertTrue(controller.state.value.importReport!!.stages.all { it.status == ImportStageStatus.Completed || it.status == ImportStageStatus.Skipped })
             assertEquals(3, runtime.descriptionImages.size) // First page is reused; only the second is retried.
             assertEquals(6, db.evidence(pdf.id, 0).size)
             assertTrue(images.all { db.imageDescription(it)?.text == "A yellow flower in a garden." })
@@ -622,6 +624,9 @@ class IngestionTests {
             val pdf = controller.state.value.library.single()
             assertTrue(pdf.searchable); assertFalse(pdf.prepared)
             assertEquals(100, db.checkpoint(pdf)!!.text)
+            assertEquals(100, db.checkpoint(pdf)!!.ocr)
+            assertEquals(100, db.checkpoint(pdf)!!.skippedOcr)
+            assertEquals(ImportStageStatus.Skipped, controller.state.value.importReport!!.stages.single { it.phase == "Indexing recognized text" }.status)
             assertEquals((0 until 100).toList(), inputs.textPages)
             assertEquals(100, runtime.embeddings.count { it.image == null && !it.query })
             runtime.holdDescriptionAt = 2 // Keep the resumed visual pass pending after answering.
@@ -633,6 +638,45 @@ class IngestionTests {
             assertEquals(100, inputs.textPages.size); assertEquals(100, inputs.imagePages.size)
             assertFalse(db.prepared(pdf)); assertNotNull(runtime.heldDescription)
         } finally { controller.close(); advanceUntilIdle(); root.deleteRecursively(); Dispatchers.resetMain() }
+    }
+
+    @Test fun mixedPdfSkipCountsSurviveInterruptedOcrWithoutDroppingScannedText() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler); Dispatchers.setMain(dispatcher)
+        val root = Files.createTempDirectory("mixed-pdf-restart").toFile()
+        val inputs = TextFirstInputs().apply {
+            pages = 3
+            pageInputs = mapOf(0 to PageInput("Selectable text on the first page", null, ""),
+                1 to PageInput("", null, "Scanned invoice INV-42"), 2 to PageInput("", null, ""))
+        }
+        val runtime = IngestionRuntime().apply { holdEmbeddingAt = 2 }
+        val db = database(root)
+        val controller = AppController(root.path, db, runtime, inputs, worker = dispatcher)
+        var restored: AppController? = null
+        try {
+            modelSpecs.take(2).forEach { controller.models.state(it, ModelState(installed = true)) }
+            inputs.selection = listOf(File(root, "mixed.pdf").apply { writeText("synthetic mixed PDF") } to "application/pdf")
+            controller.pick(false); advanceUntilIdle()
+            val pdf = controller.state.value.library.single()
+            assertEquals(2, db.checkpoint(pdf)!!.skippedText)
+            assertEquals(1, db.checkpoint(pdf)!!.skippedOcr)
+            assertEquals("Indexing recognized text", controller.state.value.importReport!!.stages.single { it.status == ImportStageStatus.Active }.phase)
+            controller.close(); advanceUntilIdle()
+            val next = IngestionRuntime()
+            restored = AppController(root.path, db, next, inputs, worker = dispatcher)
+            modelSpecs.take(2).forEach { restored.models.state(it, ModelState(installed = true)) }; advanceUntilIdle()
+            assertTrue(db.prepared(pdf))
+            assertEquals(2, db.checkpoint(pdf)!!.skippedText)
+            assertEquals(2, db.checkpoint(pdf)!!.skippedOcr)
+            assertEquals(listOf(0, 1, 2), inputs.textPages)
+            assertEquals(1, db.evidence(pdf.id, 0).count { it.kind == "ocr" && it.text == "Scanned invoice INV-42" && it.page == 2 })
+            assertFalse(next.embeddings.any { it.text == "Selectable text on the first page" })
+            assertEquals(3, next.descriptionImages.size)
+            val report = restored.state.value.importReport!!
+            assertEquals("Completed", report.status)
+            assertEquals(report, db.savedImportReport())
+            assertEquals(2, report.stages.single { it.phase == "Indexing recognized text" }.skipped)
+            assertTrue(report.stages.all { it.status == ImportStageStatus.Completed })
+        } finally { restored?.close(); controller.close(); advanceUntilIdle(); root.deleteRecursively(); Dispatchers.resetMain() }
     }
 
     @Test fun interruptedHundredPageTextPassReusesExtractionAndCommittedVectorsAfterRestart() = runTest {
