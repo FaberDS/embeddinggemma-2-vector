@@ -12,6 +12,11 @@ and searching PDFs with a local Chroma index.
 
 ## Development
 
+Issue tracking uses Linear's
+[Personal Embedding Project](https://linear.app/schuele/project/personal-embedding-project-b90343aa0790/overview).
+Project agent instructions are in [AGENTS.md](AGENTS.md); installed skills and
+their sources are listed in [.agents/skills/README.md](.agents/skills/README.md).
+
 ### Mobile app
 
 **Android:** Open `mobile/` in Android Studio with JDK 17 and Android SDK 37.
