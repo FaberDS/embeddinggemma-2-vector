@@ -129,6 +129,62 @@ private class TestIndexingTasks : IndexingTasks {
 class IngestionTests {
     private fun database(root: File) = chatStore(root.path)
 
+    @Test fun chatImageImportsJoinTheirProjectAndReuseIndexedItems() = runComposeUiTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        val root = Files.createTempDirectory("project-image-import").toFile()
+        val inputs = IngestionInputs()
+        val runtime = IngestionRuntime()
+        val db = database(root)
+        val controller = AppController(root.path, db, runtime, inputs, worker = Dispatchers.Main)
+        var restored: AppController? = null
+        try {
+            runOnIdle {
+                controller.createProject("Photos")
+                modelSpecs.take(2).forEach { controller.models.state(it, ModelState(installed = true)) }
+                inputs.selection = listOf(File(root, "flower.jpg").apply { writeText("fixture image") } to "image/jpeg")
+            }
+            val photos = controller.state.value.draft.projectId!!
+            setContent { Box(Modifier.size(390.dp, 740.dp)) { PocketAskApp(controller) } }
+            fun addImage() {
+                onNodeWithTag("chat.addSource").performClick()
+                onNodeWithText("Add images").performClick()
+            }
+            addImage()
+            waitUntil(timeoutMillis = 10_000) { controller.state.value.library.singleOrNull()?.prepared == true && controller.state.value.stage == null }
+            runOnIdle {
+                assertEquals(setOf(photos), controller.state.value.projectLibrary.single().projectIds)
+                assertTrue(db.library(root.path).single().prepared)
+            }
+            onNodeWithTag("chat.manageSources").assertTextEquals("Project sources · 1 sources · 1 searchable").performClick()
+            onNodeWithText("flower.jpg").assertIsDisplayed()
+            onNodeWithText("Indexed").assertIsDisplayed()
+            onNodeWithText("Done").performClick()
+            val embeddings = runtime.embeddings.count { !it.query }
+            runOnIdle { controller.createProject("Shared photos") }
+            val shared = controller.state.value.draft.projectId!!
+            addImage()
+            waitUntil(timeoutMillis = 10_000) { controller.state.value.projectLibrary.size == 1 && !controller.state.value.picking }
+            runOnIdle {
+                assertEquals(1, controller.state.value.library.size)
+                assertEquals(setOf(photos, shared), controller.state.value.projectLibrary.single().projectIds)
+                assertEquals(embeddings, runtime.embeddings.count { !it.query })
+                inputs.selection = listOf(File(root, "unassigned.jpg").apply { writeText("different image") } to "image/jpeg")
+            }
+            onNodeWithTag("navigation.assets").performClick()
+            onNodeWithTag("assets.add").performClick()
+            onNodeWithText("Add images").performClick()
+            waitUntil(timeoutMillis = 10_000) { controller.state.value.library.size == 2 && controller.state.value.library.all { it.prepared } && controller.state.value.stage == null }
+            runOnIdle {
+                assertTrue(controller.state.value.library.single { it.name == "unassigned.jpg" }.projectIds.isEmpty())
+                assertEquals(1, controller.state.value.projectLibrary.size)
+                controller.close()
+                restored = AppController(root.path, db, IngestionRuntime(), inputs, worker = Dispatchers.Main)
+                assertEquals(setOf(photos, shared), restored!!.state.value.library.single { it.name == "flower.jpg" }.projectIds)
+                assertEquals(1, restored!!.state.value.projectLibrary.size)
+            }
+        } finally { restored?.close(); controller.close(); root.deleteRecursively(); Dispatchers.resetMain() }
+    }
+
     @Test fun ocrPassagesAreIndexedOnceAndRemainSearchableInNewChatsWithoutReadingImages() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler); Dispatchers.setMain(dispatcher)
         val root = Files.createTempDirectory("ocr-ingestion").toFile()

@@ -3,7 +3,8 @@
 An Android/iOS app with a shared Compose Multiplatform UI. Import PDF, TXT and
 Markdown files, images and written notes into a persistent library. Create or
 select a project in the header, then use each item's **Projects** control in
-Assets to assign it to zero, one or multiple projects. Imports start unassigned.
+Assets to assign it to zero, one or multiple projects. Files and images added
+from a chat join its selected project; Assets imports start unassigned.
 Every chat belongs to one project and searches only its assigned indexed items;
 shared items reuse the same content and vectors. Retrieval, generation, drafts
 and history run locally after the model downloads. This version requires a clean
