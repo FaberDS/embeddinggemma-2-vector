@@ -27,10 +27,12 @@ import androidx.compose.ui.unit.dp
 internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step: String?, copying: Boolean,
     onPause: () -> Unit, onResume: () -> Unit, canResume: Boolean = true) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(report.status) { if (report.status == "Completed") expanded = false }
     val threshold = with(LocalDensity.current) { 28.dp.toPx() }
     val active = progress != null || copying
     val listState = rememberLazyListState()
     val groups = remember(report.stages) { report.stages.groupBy { it.assetId }.values.toList() }
+    val completedItems = groups.count { stages -> stages.all { it.status == ImportStageStatus.Completed } }
     val focusedAsset = report.stages.firstOrNull { it.status == ImportStageStatus.Active || it.status == ImportStageStatus.Paused || it.status == ImportStageStatus.Failed }?.assetId
     LaunchedEffect(expanded, focusedAsset) {
         val group = groups.indexOfFirst { it.first().assetId == focusedAsset }
@@ -68,6 +70,8 @@ internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step
                     Text(estimate, Modifier.testTag("import.estimate"), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                if (groups.size > 1) Text("$completedItems/${groups.size} items", Modifier.testTag("import.items"),
+                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Text(if (expanded) "⌃" else "⌄", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             AnimatedVisibility(expanded) {
