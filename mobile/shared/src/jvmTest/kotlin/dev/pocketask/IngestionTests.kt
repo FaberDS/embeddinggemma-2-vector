@@ -129,6 +129,51 @@ private class TestIndexingTasks : IndexingTasks {
 class IngestionTests {
     private fun database(root: File) = chatStore(root.path)
 
+    @Test fun completedImportHidesAfterSwitchingTabsUntilTheNextImport() = runComposeUiTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        val root = Files.createTempDirectory("import-navigation").toFile()
+        val inputs = IngestionInputs()
+        val runtime = IngestionRuntime()
+        val db = database(root)
+        var controller = AppController(root.path, db, runtime, inputs, worker = Dispatchers.Main)
+        try {
+            runOnIdle {
+                controller.models.state(modelSpecs.first(), ModelState(installed = true))
+                controller.addText("First", "First indexed source")
+            }
+            waitUntil(timeoutMillis = 10_000) { controller.state.value.importReport?.status == "Completed" }
+            setContent { Box(Modifier.size(390.dp, 740.dp)) { PocketAskApp(controller) } }
+            onNodeWithTag("import.header").assertIsDisplayed()
+            onNodeWithTag("navigation.ask").performClick()
+            onNodeWithTag("import.header").assertIsDisplayed()
+            onNodeWithTag("navigation.assets").performClick()
+            onNodeWithTag("import.header").assertDoesNotExist()
+            onNodeWithTag("navigation.ask").performClick()
+            onNodeWithTag("import.header").assertDoesNotExist()
+            runOnIdle {
+                assertNull(db.savedImportReport())
+                assertTrue(db.library(root.path).single().prepared)
+                controller.close()
+                controller = AppController(root.path, db, runtime, inputs, worker = Dispatchers.Main)
+                assertNull(controller.state.value.importReport)
+                controller.models.state(modelSpecs.first(), ModelState(installed = true))
+                runtime.holdNextDocument = true
+                controller.addText("Second", "Second indexed source")
+            }
+            setContent { Box(Modifier.size(390.dp, 740.dp)) { PocketAskApp(controller) } }
+            waitUntil(timeoutMillis = 10_000) { runtime.held != null }
+            onNodeWithTag("import.header").assertIsDisplayed()
+            onNodeWithTag("navigation.assets").performClick()
+            onNodeWithTag("import.header").assertIsDisplayed()
+            runOnIdle { runtime.held!!.success(List(256) { if (it == 0) 1f else 0f }) }
+            waitUntil(timeoutMillis = 10_000) { controller.state.value.importReport?.status == "Completed" }
+            onNodeWithTag("import.header").assertIsDisplayed()
+            onNodeWithTag("navigation.ask").performClick()
+            onNodeWithTag("import.header").assertDoesNotExist()
+            runOnIdle { assertEquals(2, db.library(root.path).count { it.prepared }) }
+        } finally { controller.close(); root.deleteRecursively(); Dispatchers.resetMain() }
+    }
+
     @Test fun chatImageImportsJoinTheirProjectAndReuseIndexedItems() = runComposeUiTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val root = Files.createTempDirectory("project-image-import").toFile()

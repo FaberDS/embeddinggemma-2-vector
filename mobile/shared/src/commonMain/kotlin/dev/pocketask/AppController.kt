@@ -139,7 +139,15 @@ class AppController(private val root: String, private val store: Store, private 
         val source = store.setMembership(sourceId, projectId, included)
         update { it.copy(library = it.library.map { item -> if (item.id == sourceId) source else item }) }
     }
-    fun screen(name: String) { pauseMemoryRecording(); if (speech.state.value.listening) speech.stop(); update { it.copy(screen = name, error = null) } }
+    fun screen(name: String) {
+        pauseMemoryRecording()
+        if (speech.state.value.listening) speech.stop()
+        val current = state.value
+        val dismissImport = current.screen != name && current.importReport?.status == "Completed" &&
+            current.indexing == null && !current.importing && !current.picking
+        if (dismissImport) store.put("import-report", value = "")
+        update { it.copy(screen = name, error = null, importReport = if (dismissImport) null else it.importReport) }
+    }
     fun settings() = screen("settings")
     fun telemetry(enabled: Boolean) {
         store.put("request-telemetry", value = if (enabled) "yes" else "no")
