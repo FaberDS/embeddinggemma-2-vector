@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,7 +51,11 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Your assets", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
                     Box {
-                        OutlinedButton(onClick = { adding = true }, enabled = !busy, modifier = Modifier.testTag("assets.add")) { Text("+ Add") }
+                        FilledTonalButton(onClick = { adding = true }, enabled = !busy, modifier = Modifier.testTag("assets.add")) {
+                            Icon(AddAssetIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add")
+                        }
                         DropdownMenu(adding, { adding = false }) {
                             DropdownMenuItem(text = { Text("Add files") }, onClick = { adding = false; controller.pick(false) })
                             DropdownMenuItem(text = { Text("Add images") }, onClick = { adding = false; controller.pick(true) })
@@ -77,7 +82,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
         }
         items(assets, key = { it.id }, span = { if (it.isImage) GridItemSpan(1) else GridItemSpan(maxLineSpan) }) { source ->
             AssetCard(source, busy, { controller.open(source.path) }, { removing = source }, { source.sourceUrl?.let { controller.open(it) } },
-                state.projects.filter { it.id in source.projectIds }.joinToString { it.name }.ifEmpty { "Unassigned" }, { memberships = source.id })
+                state.projects.filter { it.id in source.projectIds }.map { it.name }.ifEmpty { listOf("Unassigned") }, { memberships = source.id })
         }
         state.error?.let { error -> item(span = { GridItemSpan(maxLineSpan) }) { ErrorCard(error, controller::dismissError) } }
     }
@@ -87,7 +92,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
 }
 
 @Composable
-private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remove: () -> Unit, openUrl: () -> Unit, projects: String, memberships: () -> Unit) {
+private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remove: () -> Unit, openUrl: () -> Unit, projects: List<String>, memberships: () -> Unit) {
     val kind = when {
         source.isMemory -> "Transcript"
         source.isImage -> "Image"
@@ -109,20 +114,51 @@ private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remov
                     Text("$kind · ${if (source.prepared) "Indexed" else if (source.searchable) "Text searchable · visual indexing pending" else "Waiting to index"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            TextButton(onClick = memberships, enabled = !busy, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.fillMaxWidth().testTag("assets.projects.${source.id}")) {
-                Text("Projects · $projects", style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                projects.forEachIndexed { index, name ->
+                    AssistChip(onClick = memberships, enabled = !busy, shape = CircleShape,
+                        modifier = Modifier.testTag(if (index == 0) "assets.projects.${source.id}" else "assets.projects.${source.id}.$index"),
+                        label = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        colors = AssistChipDefaults.assistChipColors(containerColor = if (source.projectIds.isEmpty()) MaterialTheme.colorScheme.surface
+                            else MaterialTheme.colorScheme.secondaryContainer, labelColor = MaterialTheme.colorScheme.onSecondaryContainer))
+                }
             }
             if (source.isWebPage) {
                 source.sourceUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2) }
                 source.createdAt?.let { Text("Imported ${timingTimestamp(it)}", style = MaterialTheme.typography.labelSmall) }
-                TextButton(onClick = openUrl, modifier = Modifier.testTag("assets.url.${source.id}")) { Text("Open original URL") }
+                TextButton(onClick = openUrl, modifier = Modifier.testTag("assets.url.${source.id}")) {
+                    Icon(OpenAssetIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open original URL")
+                }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = open, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.testTag("assets.open.${source.id}")) { Text(if (source.isWebPage) "Saved content" else "Open") }
-                TextButton(onClick = remove, enabled = !busy, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.testTag("assets.remove.${source.id}")) { Text("Remove") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                FilledTonalButton(onClick = open, contentPadding = PaddingValues(horizontal = 10.dp), modifier = Modifier.testTag("assets.open.${source.id}")) {
+                    Icon(DocumentIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (source.isWebPage) "Saved content" else "Open")
+                }
+                IconButton(onClick = remove, enabled = !busy, modifier = Modifier.testTag("assets.remove.${source.id}")) {
+                    Icon(RemoveAssetIcon, contentDescription = "Remove ${source.name}", tint = if (busy) LocalContentColor.current else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
+}
+
+private val AddAssetIcon = lineIcon("AddAsset") {
+    moveTo(12f, 5f); lineTo(12f, 19f); moveTo(5f, 12f); lineTo(19f, 12f)
+}
+private val OpenAssetIcon = lineIcon("OpenAsset") {
+    moveTo(14f, 3f); lineTo(21f, 3f); lineTo(21f, 10f); moveTo(21f, 3f); lineTo(10f, 14f)
+    moveTo(10f, 3f); lineTo(5f, 3f); quadTo(3f, 3f, 3f, 5f); lineTo(3f, 19f)
+    quadTo(3f, 21f, 5f, 21f); lineTo(19f, 21f); quadTo(21f, 21f, 21f, 19f); lineTo(21f, 14f)
+}
+private val RemoveAssetIcon = lineIcon("RemoveAsset") {
+    moveTo(3f, 6f); lineTo(21f, 6f); moveTo(9f, 6f); lineTo(9f, 3f); lineTo(15f, 3f); lineTo(15f, 6f)
+    moveTo(5f, 6f); lineTo(6f, 21f); lineTo(18f, 21f); lineTo(19f, 6f)
+    moveTo(10f, 10f); lineTo(10f, 17f); moveTo(14f, 10f); lineTo(14f, 17f)
 }
 
 private val DocumentIcon = ImageVector.Builder("Document", 24.dp, 24.dp, 24f, 24f).apply {

@@ -55,6 +55,9 @@ class AssetsUiTests {
         val pdf = source("3-pdf", "Garden guide.pdf", "application/pdf")
         val memory = source("2-memory", "Garden ideas.md", "text/markdown", memory = true)
         val note = source("1-note", "Plans.md", "text/markdown", prepared = false)
+        db.saveProject(Project("garden", "Garden research with a long project name"))
+        db.setMembership(rose.id, "test-project", true)
+        db.setMembership(rose.id, "garden", true)
         val controller = AppController(root.path, db, runtime, inputs)
         try {
             setContent { Box(Modifier.width(390.dp).height(844.dp).testTag("assets.preview")) { PocketAskApp(controller) } }
@@ -63,9 +66,21 @@ class AssetsUiTests {
             onNodeWithText("Your assets").assertIsDisplayed()
             onNodeWithText("5 assets · 4 searchable").assertIsDisplayed()
             onNodeWithTag("assets.filter.All").assertIsSelected()
+            onNodeWithTag("assets.grid").performScrollToIndex(1)
             val first = onNodeWithTag("assets.item.${rose.id}").fetchSemanticsNode().boundsInRoot
             val second = onNodeWithTag("assets.item.${tulip.id}").fetchSemanticsNode().boundsInRoot
             assertEquals(first.top, second.top); assertTrue(first.right < second.left)
+            onNodeWithTag("assets.projects.${rose.id}").assertTextEquals("Test project").performClick()
+            onNodeWithTag("assets.membership.test-project").assertIsOn()
+            onNodeWithTag("assets.membership.garden").assertIsOn()
+            onNodeWithText("Done").performClick()
+            onNodeWithTag("assets.projects.${rose.id}.1").assertTextEquals("Garden research with a long project name")
+            val pill = onNodeWithTag("assets.projects.${rose.id}.1").fetchSemanticsNode().boundsInRoot
+            assertTrue(pill.left >= first.left && pill.right <= first.right)
+            val open = onNodeWithTag("assets.open.${rose.id}").fetchSemanticsNode().boundsInRoot
+            val remove = onNodeWithTag("assets.remove.${rose.id}").fetchSemanticsNode().boundsInRoot
+            assertTrue(open.right <= remove.left)
+            onNodeWithContentDescription("Remove Rose.png").assertExists()
             val pixels = onNodeWithTag("assets.preview").captureToImage().toPixelMap()
             val screenshot = BufferedImage(pixels.width, pixels.height, BufferedImage.TYPE_INT_ARGB)
             for (y in 0 until pixels.height) for (x in 0 until pixels.width) screenshot.setRGB(x, y, pixels[x, y].toArgb())

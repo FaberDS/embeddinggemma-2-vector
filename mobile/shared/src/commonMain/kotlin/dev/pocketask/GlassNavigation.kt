@@ -139,7 +139,7 @@ internal fun GlassNavigation(screen: String, onSelect: (String) -> Unit, haze: H
     }
 }
 
-private fun lineIcon(name: String, path: PathBuilder.() -> Unit): ImageVector =
+internal fun lineIcon(name: String, path: PathBuilder.() -> Unit): ImageVector =
     ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
         path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.8f,
             strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round, pathBuilder = path)
