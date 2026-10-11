@@ -90,7 +90,7 @@ class SpeechTests {
             controller.question("Typed draft"); controller.speech.toggleListening(); runCurrent()
             platform.dictation!!.failure("Microphone permission denied"); runCurrent()
             assertFalse(controller.speech.state.value.listening); assertEquals("Typed draft", controller.state.value.draft.question)
-            val answer = Answer("a", "q", emptyList(), text = "Answer", status = "Completed")
+            val answer = Answer("test-project", "a", "q", emptyList(), text = "Answer", status = "Completed")
             controller.speech.read(answer, automatic = true); assertTrue(platform.spoken.isEmpty())
             controller.speech.read(answer); assertContains(controller.speech.state.value.error!!, "Download Supertonic")
             assertNull(controller.speech.state.value.answerId)
@@ -102,7 +102,7 @@ class SpeechTests {
         val controller = AppController(root.path, chatStore(root.path), ChatRuntime(), ChatInputs(), worker = dispatcher, platformSpeech = platform)
         try {
             ready(controller)
-            listOf("Failed", "Stopped", "Interrupted").forEach { status -> controller.speech.read(Answer(status, "q", emptyList(), text = "Partial answer", status = status), automatic = true) }
+            listOf("Failed", "Stopped", "Interrupted").forEach { status -> controller.speech.read(Answer("test-project", status, "q", emptyList(), text = "Partial answer", status = status), automatic = true) }
             assertTrue(platform.spoken.isEmpty())
         } finally { controller.close(); runCurrent(); root.deleteRecursively(); Dispatchers.resetMain() }
     }

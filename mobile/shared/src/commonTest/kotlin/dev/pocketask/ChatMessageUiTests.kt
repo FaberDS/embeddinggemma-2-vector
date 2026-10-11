@@ -17,7 +17,7 @@ class ChatMessageUiTests {
         val photos = (1..2).map { Attachment("photo-$it", "Photo $it.jpg", "/unopened/$it.jpg", "image/jpeg") }
         val sources = listOf(Evidence("page", document.id, document.name, 1, "Passage", null, emptyList())) +
             photos.map { Evidence(it.id, it.id, it.name, null, "", it.path, emptyList()) }
-        val answer = mutableStateOf(Answer("reply", "Find the picture", listOf(document) + photos,
+        val answer = mutableStateOf(Answer("test-project", "reply", "Find the picture", listOf(document) + photos,
             text = "The flower is in this picture [S3].", sources = sources, status = "Answering"))
         setContent { MaterialTheme { Column(Modifier.width(360.dp)) {
             ModelMessage(answer.value, 1700000000000, "Answering", { _, _ -> }, {})
@@ -35,7 +35,7 @@ class ChatMessageUiTests {
 
     @Test fun userAndModelBubblesAlignOppositelyAndDocumentLinksOpenTheOriginalPage() = runComposeUiTest {
         val pdf = Attachment("pdf", "Report.pdf", "/earlier-chat/report.pdf", "application/pdf")
-        val answer = Answer("turn", "Summarize the report", listOf(pdf), text = "A brief summary [S1].", status = "Completed", modelId = "answer",
+        val answer = Answer("test-project", "turn", "Summarize the report", listOf(pdf), text = "A brief summary [S1].", status = "Completed", modelId = "answer",
             sources = listOf(Evidence("page", pdf.id, pdf.name, 2, "", "/earlier-chat/page-1.jpg", emptyList())))
         val opened = mutableListOf<Pair<String, Int>>()
         setContent { MaterialTheme { Column(Modifier.width(360.dp)) {
@@ -54,7 +54,7 @@ class ChatMessageUiTests {
 
     @Test fun aSavedTextDescriptionDisplaysItsLinkedImageAndOpensTheOriginal() = runComposeUiTest {
         val photo = Attachment("photo", "Garden.jpg", "/earlier-chat/garden.jpg", "image/jpeg")
-        val answer = Answer("turn", "Describe it", listOf(photo), text = "A garden [S1].", status = "Completed",
+        val answer = Answer("test-project", "turn", "Describe it", listOf(photo), text = "A garden [S1].", status = "Completed",
             sources = listOf(Evidence("photo-description", photo.id, photo.name, null, "A garden with flowers", null, emptyList(), previewImage = photo.path)))
         var opened: String? = null
         setContent { MaterialTheme { Column(Modifier.width(360.dp)) {
@@ -67,7 +67,7 @@ class ChatMessageUiTests {
 
     @Test fun multipleImagesUseThumbnailsAndIndependentOpenLinks() = runComposeUiTest {
         val photos = List(2) { Attachment("photo-$it", "Photo $it.jpg", "/earlier-chat/$it.jpg", "image/jpeg") }
-        val answer = Answer("turn", "Compare", photos, text = "Comparison [S1] [S2].", status = "Completed",
+        val answer = Answer("test-project", "turn", "Compare", photos, text = "Comparison [S1] [S2].", status = "Completed",
             sources = photos.map { Evidence(it.id, it.id, it.name, null, "", it.path, emptyList()) })
         var opened: String? = null
         setContent { MaterialTheme { Column(Modifier.width(360.dp)) {

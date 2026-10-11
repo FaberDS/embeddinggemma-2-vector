@@ -24,6 +24,18 @@ class Store(private val driver: SqlDriver, root: String? = null) {
     private fun loaded(answer: Answer) = answer.copy(attachments = answer.attachments.map(::loaded), sources = answer.sources.map(::loaded))
     fun value(kind: String, id: String = "value") = queries.get(kind, id).executeAsOneOrNull()
     fun put(kind: String, id: String = "value", value: String) = queries.put(kind, id, value)
+    fun projects() = queries.list("project").executeAsList().map { json.decodeFromString<Project>(it) }
+    fun saveProject(project: Project) {
+        require(project.id.isNotBlank() && project.name.isNotBlank()) { "Enter a project name." }
+        put("project", project.id, json.encodeToString(project))
+    }
+    fun setMembership(sourceId: String, projectId: String, included: Boolean): Attachment {
+        require(value("project", projectId) != null) { "Project not found." }
+        val source = requireNotNull(value("library", sourceId)) { "Item not found." }.let { loaded(json.decodeFromString<Attachment>(it)) }
+        val updated = source.copy(projectIds = if (included) source.projectIds + projectId else source.projectIds - projectId)
+        saveSource(updated)
+        return updated
+    }
     fun draft() = value("draft")?.let { json.decodeFromString<Draft>(it) }?.let { it.copy(attachments = it.attachments.map(::loaded)) } ?: Draft()
     fun saveDraft(draft: Draft) = put("draft", value = json.encodeToString(draft.copy(attachments = draft.attachments.map(::stored))))
     fun memoryDraft() = value("memory-draft")?.let { json.decodeFromString<MemoryDraft>(it).copy(status = "Ready", error = null) }
@@ -71,7 +83,15 @@ class Store(private val driver: SqlDriver, root: String? = null) {
     fun history() = queries.list("history").executeAsList().map { loaded(json.decodeFromString<Answer>(it)) }.map {
         if (it.status in listOf("Preparing", "Answering")) it.copy(status = "Interrupted", error = "The app stopped. Use again to resume.") else it
     }
-    fun save(answer: Answer) = put("history", answer.id, json.encodeToString(stored(answer)))
+    fun save(answer: Answer) {
+        require(value("project", answer.projectId) != null) { "Project not found." }
+        queries.transaction {
+            val project = value("conversation-project", answer.conversationId)
+            require(project == null || project == answer.projectId) { "A chat belongs to one project." }
+            put("conversation-project", answer.conversationId, answer.projectId)
+            put("history", answer.id, json.encodeToString(stored(answer)))
+        }
+    }
     fun remove(answer: Answer) = queries.remove("history", answer.id)
     fun addEvidence(evidence: Evidence) {
         val encoded = json.encodeToString(stored(evidence))

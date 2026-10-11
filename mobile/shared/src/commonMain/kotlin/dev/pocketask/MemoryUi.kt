@@ -28,7 +28,7 @@ internal fun MemoryDialog(controller: AppController, memory: MemoryDraft, state:
                 if (saving) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(state.stage ?: "Preparing memory…") }
                 if (saved) {
                     Text(memory.title, style = MaterialTheme.typography.titleMedium)
-                    Text(if (indexed) "Indexed · available in every chat" else "Saved in your knowledge base · waiting to index", style = MaterialTheme.typography.bodySmall)
+                    Text(if (indexed) "Indexed · assign to projects from Assets" else "Saved · waiting to index · assign to projects from Assets", style = MaterialTheme.typography.bodySmall)
                     if (!indexed) state.stage?.let { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(it, style = MaterialTheme.typography.bodySmall) }
                     Text(memory.transcript, style = MaterialTheme.typography.bodyMedium)
                 } else {

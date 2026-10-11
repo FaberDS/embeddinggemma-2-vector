@@ -35,7 +35,11 @@ internal class ChatRuntime : LocalRuntime {
 internal fun chatStore(root: String): Store {
     val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
     AppDatabase.Schema.create(driver)
-    return Store(driver, root).also { it.put("onboarded", value = "yes") }
+    return Store(driver, root).also { it.put("onboarded", value = "yes"); it.saveProject(Project("test-project", "Test project")); it.saveDraft(Draft(projectId = "test-project")) }
+}
+
+internal fun AppController.assignTestSources() {
+    state.value.library.filter { "test-project" !in it.projectIds }.forEach { setMembership(it.id, "test-project", true) }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

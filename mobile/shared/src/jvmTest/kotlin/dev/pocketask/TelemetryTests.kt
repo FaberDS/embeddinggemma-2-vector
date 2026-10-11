@@ -31,7 +31,7 @@ class TelemetryTests {
         val root = Files.createTempDirectory("request-timing").toFile()
         val store = chatStore(root.path)
         val source = Attachment("pdf", "Source.pdf", "/missing.pdf", "application/pdf")
-        store.saveSource(source); store.markPrepared(source)
+        store.saveSource(source.copy(projectIds = setOf("test-project"))); store.markPrepared(source)
         store.addEvidence(Evidence("passage", source.id, source.name, 1, "Google Core Web Vitals", null, List(256) { if (it == 0) 1f else 0f }))
         val runtime = TimingRuntime()
         val controller = AppController(root.path, store, runtime, ChatInputs(), worker = dispatcher)

@@ -21,13 +21,14 @@ class ConversationTests {
     }
 
     @Test fun liveRepliesReplaceSavedCopiesAndOtherChatsStayOutOfTheConversation() {
-        val first = Answer("one", "First", emptyList(), status = "Completed", conversationId = "chat", createdAt = 100)
+        val first = Answer("test-project", "one", "First", emptyList(), status = "Completed", conversationId = "chat", createdAt = 100)
         val second = first.copy(id = "two", question = "Second", createdAt = 200, text = "Saved partial")
         val other = first.copy(id = "other", conversationId = "other", createdAt = 300)
-        val state = UiState(draft = Draft(conversationId = "chat"), history = listOf(second, other, first), result = second.copy(text = "Live text"))
+        val foreign = first.copy(id = "foreign", projectId = "another-project", text = "Foreign answer")
+        val state = UiState(draft = Draft(conversationId = "chat", projectId = "test-project"), history = listOf(second, other, first, foreign), result = second.copy(text = "Live text"))
         assertEquals(listOf("one", "two"), conversationTurns(state).map { it.id })
         assertEquals("Live text", conversationTurns(state).last().text)
-        assertEquals(listOf("other", "two"), conversationSummaries(state.history).map { it.id })
+        assertEquals(listOf("other", "two"), conversationSummaries(state.projectHistory).map { it.id })
         assertTrue(conversationTurns(state.copy(draft = Draft())).isEmpty())
     }
 
@@ -39,7 +40,7 @@ class ConversationTests {
             Evidence("page", pdf.id, pdf.name, 3, "", "/old-chat/page-2.jpg", emptyList()),
             Evidence("photo", photo.id, photo.name, null, "", photo.path, emptyList())
         )
-        val links = sourceLinks(Answer("one", "Question", listOf(pdf, photo), sources = sources, text = "Evidence [S1] [S2] [S3].", status = "Completed"))
+        val links = sourceLinks(Answer("test-project", "one", "Question", listOf(pdf, photo), sources = sources, text = "Evidence [S1] [S2] [S3].", status = "Completed"))
         assertEquals(2, links.size)
         assertEquals(listOf(1, 2), links.first().citations)
         assertEquals("[S1] [S2] Annual report.pdf · page 3", links.first().label)
@@ -52,7 +53,7 @@ class ConversationTests {
     @Test fun onlyCitedCompletedSourcesHaveLinksAndTheirOriginalNumbersStayStable() {
         val sources = (1..3).map { Evidence("source-$it", "owner-$it", "Document $it.txt", null, "Passage", null, emptyList()) }
         val files = sources.map { Attachment(it.attachmentId, it.name, "/original/${it.name}", "text/plain") }
-        val answer = Answer("reply", "Question", files, text = "Third passage [S3].", sources = sources, status = "Answering")
+        val answer = Answer("test-project", "reply", "Question", files, text = "Third passage [S3].", sources = sources, status = "Answering")
         listOf("Preparing", "Answering", "Stopped", "Failed", "Interrupted").forEach { status ->
             assertTrue(sourceLinks(answer.copy(status = status)).isEmpty())
         }
@@ -63,8 +64,8 @@ class ConversationTests {
         assertTrue(sourceLinks(answer.copy(status = "Completed", text = "No cited evidence.")).isEmpty())
     }
 
-    @Test fun oldHistoryDecodesWithoutInventingCompletionTimesOrModelNames() {
-        val legacy = json.decodeFromString<Answer>("""{"id":"1700000000000-42","question":"Old question","attachments":[],"status":"Completed"}""")
+    @Test fun historyDecodesWithoutInventingCompletionTimesOrModelNames() {
+        val legacy = json.decodeFromString<Answer>("""{"id":"1700000000000-42","question":"Old question","attachments":[],"projectId":"test-project","status":"Completed"}""")
         assertEquals(legacy.id, legacy.conversationId)
         assertEquals(1700000000000, legacy.sentAt())
         assertNull(legacy.completedAt)
@@ -72,7 +73,7 @@ class ConversationTests {
     }
 
     @Test fun followUpContextIsBoundedAndCannotReuseCitationIdsFromEarlierEvidence() {
-        val turns = List(8) { Answer("$it", "Question $it", emptyList(), text = "Answer $it [S1] " + "details ".repeat(50), status = "Completed") }
+        val turns = List(8) { Answer("test-project", "$it", "Question $it", emptyList(), text = "Answer $it [S1] " + "details ".repeat(50), status = "Completed") }
         val context = conversationContext(turns + turns.last().copy(id = "failed", text = "Failed content", status = "Failed"), budget = 1200)
         assertTrue(context.length <= 1200)
         assertContains(context, "Question 7")

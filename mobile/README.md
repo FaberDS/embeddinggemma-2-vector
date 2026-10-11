@@ -1,9 +1,13 @@
 # Locune
 
 An Android/iOS app with a shared Compose Multiplatform UI. Import PDF, TXT and
-Markdown files, images and written notes into a persistent knowledge base. Every
-chat searches its indexed sources. Retrieval, generation, drafts and history run
-locally after the model downloads.
+Markdown files, images and written notes into a persistent library. Create or
+select a project in the header, then use each item's **Projects** control in
+Assets to assign it to zero, one or multiple projects. Imports start unassigned.
+Every chat belongs to one project and searches only its assigned indexed items;
+shared items reuse the same content and vectors. Retrieval, generation, drafts
+and history run locally after the model downloads. This version requires a clean
+installation; migration of existing chats and items is out of scope.
 
 ## Web pages
 
@@ -223,11 +227,11 @@ until the app is reopened. Interrupted verification is recovered on launch.
 Existing verified downloads from the earlier app are retained; unfinished
 foreground downloads are replaced by a new native transfer on retry.
 
-Once installed, try a question with no attachments, then with a small PDF and
-an image. Model initialization is shown separately from download progress.
+Once installed, create a project and assign a small PDF and an image before
+asking a question. Model initialization is shown separately from download progress.
 Ask is a conversation with a bottom composer, user bubbles on the right and
 model replies on the left. The dark + button opens Add files, Add images, Write text and Add memory; the supported formats remain PDF, TXT, Markdown and images. The
-knowledge-base summary opens source management without filling the conversation
+project-source summary opens membership management without filling the conversation
 with every imported image. The Assets tab shows the entire knowledge base, with All, Images, Documents and Memories filters. Images use a thumbnail gallery; documents and memory transcripts open their original files. Indexed and pending assets remain visible, and removal requires confirmation. A floating glass pill replaces the
 stock bottom bar, with line icons and safe-area spacing. Taps slide a shared
 selector with a spring animation; horizontal drags follow the finger and snap
@@ -245,20 +249,21 @@ same local date, or a date/time for older replies. Source previews appear only i
 The best retrieved image is embedded; older multi-image replies keep their
 thumbnail Open links. Document
 links show the original filename and page, and open that reply's original file.
-History groups related turns into conversations with Continue and Delete/Undo.
-New chat starts a separate conversation and keeps the entire knowledge base.
-Deleting or clearing history also keeps imported sources and vectors. Removing a
+History shows the selected project's conversations with Continue and Delete/Undo.
+New chat stays in that project; selecting another project starts a fresh draft.
+Continuing or retrying a saved chat restores its original project. Deleting or
+clearing project history keeps the other projects' chats, imported items and vectors. Removing a
 source requires confirmation and excludes it from future searches; earlier answers
 retain linked files until those answers are deleted. Earlier turns provide bounded textual
-context for follow-ups; old citation IDs are excluded from this context. Legacy
-history remains readable without inventing completion times or model identities.
-The app migrates sources from legacy drafts and history once, and recovers orphan
-imports from private storage, reusing their existing vectors. If an orphan was
-never indexed, its original display name was not saved by the old version; it is
-shown as a recovered source. Explicitly removed sources are never re-added by
-opening an old chat or restarting. Input
-paths are stored relative to app storage and resolved at launch, including
-legacy absolute paths in drafts, history and cached page images. This keeps
+context for follow-ups; old citation IDs are excluded from this context. Earlier
+replies are reused only while the project's item memberships match the request
+that produced them. Changing memberships leaves historical replies visible but
+excludes their context from subsequent questions. Unassigning an item keeps its
+file, index and memberships in other projects. Projects, memberships and chat
+associations persist across restarts. An empty project never searches the global
+library, and the answer model is instructed to report unsupported questions.
+Explicitly removed sources are never re-added by opening an old chat or restarting.
+Input paths are stored relative to app storage and resolved at launch. This keeps
 attachments usable when iOS relocates the container during an app update.
 Stopping preserves partial output. History can reopen conversations, restore a
 draft, or delete a conversation with Undo. Source links open local content.
@@ -273,7 +278,7 @@ draft, or delete a conversation with Undo. Source links open local content.
 
 The model engines are serialized and released between search and generation.
 On opening or returning to the app, it preloads the first installed engine a
-question needs: search when the knowledge base contains sources, otherwise the
+question needs: search when the selected project contains sources, otherwise the
 selected answer model. Preloading runs without blocking the chat controls. A
 question sent during preload waits for that load instead of initializing a second
 engine; telemetry labels both the wait and reuse of a preloaded model. Pending

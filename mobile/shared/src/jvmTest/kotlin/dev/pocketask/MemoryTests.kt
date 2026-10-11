@@ -57,7 +57,7 @@ class MemoryTests {
             assertNull(db.memoryDraft()); assertTrue(db.history().isEmpty())
             callback.text("A duplicate late callback", true); advanceUntilIdle()
             assertEquals(1, runtime.titles); assertEquals(1, controller.state.value.library.size)
-            controller.closeMemory(); controller.newQuestion(); controller.question("What should I remember about flowers?"); controller.ask(); advanceUntilIdle()
+            controller.closeMemory(); controller.newQuestion(); controller.question("What should I remember about flowers?"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertEquals(memory.id, controller.state.value.result!!.sources.single().attachmentId)
             controller.close(); runCurrent()
             val nextRuntime = MemoryRuntime()

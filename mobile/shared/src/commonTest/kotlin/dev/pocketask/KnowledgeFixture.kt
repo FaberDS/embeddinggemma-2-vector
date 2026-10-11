@@ -21,7 +21,8 @@ internal fun seedLegacyKnowledge(driver: SqlDriver, root: String) {
     val ready = Attachment("ready", "Old document.pdf", "$root/missing.pdf", "application/pdf")
     val pending = Attachment("pending", "Old memory.md", "$root/missing.md", "text/markdown", isMemory = true)
     store.saveSource(ready); store.saveSource(pending); store.markPrepared(ready)
-    store.save(Answer("history", "Keep my conversation", listOf(ready), status = "Completed", text = "A saved reply"))
+    store.saveProject(Project("test-project", "Test project"))
+    store.save(Answer("test-project", "history", "Keep my conversation", listOf(ready), status = "Completed", text = "A saved reply"))
     val vector = normalize(List(256) { sin(it * 0.7).toFloat() })
     for (i in 0 until 129) {
         val image = i % 3 == 0

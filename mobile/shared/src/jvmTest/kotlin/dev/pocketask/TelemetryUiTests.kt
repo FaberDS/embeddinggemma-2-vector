@@ -45,7 +45,7 @@ class TelemetryUiTests {
             RequestTiming(start + 58410, 58410, "Releasing models"),
             RequestTiming(start + 58700, 58700, "Completed")
         )
-        val answer = Answer("preview", "Google Core Web Vitals", emptyList(), status = "Completed", timings = timings)
+        val answer = Answer("test-project", "preview", "Google Core Web Vitals", emptyList(), status = "Completed", timings = timings)
         setContent { MaterialTheme { Column(Modifier.width(390.dp).height(1200.dp).testTag("timing.preview")) { RequestTimingPanel(answer, false) } } }
         onNodeWithText("Waiting for first text · 39.900 s").assertIsDisplayed()
         val pixels = onNodeWithTag("timing.preview").captureToImage().toPixelMap()
@@ -59,11 +59,11 @@ class TelemetryUiTests {
         val root = Files.createTempDirectory("request-timing-ui").toFile()
         val store = chatStore(root.path)
         val now = System.currentTimeMillis()
-        val reply = Answer("timed", "Google Core Web Vitals", emptyList(), text = "A saved reply.", status = "Completed", createdAt = now, completedAt = now + 3200,
+        val reply = Answer("test-project", "timed", "Google Core Web Vitals", emptyList(), text = "A saved reply.", status = "Completed", createdAt = now, completedAt = now + 3200,
             timings = listOf(RequestTiming(now, 0, "Loading answer model", "Gemma 4 E2B IT"),
                 RequestTiming(now + 1200, 1200, "Waiting for first text", "GPU · 1800 prompt characters"),
                 RequestTiming(now + 3200, 3200, "Completed")))
-        store.save(reply); store.saveDraft(Draft(conversationId = reply.id))
+        store.save(reply); store.saveDraft(Draft(conversationId = reply.id, projectId = "test-project"))
         val controller = AppController(root.path, store, ChatRuntime(), ChatInputs())
         var clipboardText: AnnotatedString? = null
         val clipboard = object : ClipboardManager {

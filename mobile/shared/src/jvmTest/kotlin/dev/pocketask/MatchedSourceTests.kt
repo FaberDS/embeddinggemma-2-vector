@@ -54,7 +54,7 @@ class MatchedSourceTests {
         try {
             modelSpecs.take(2).forEach { controller.models.state(it, ModelState(installed = true)) }
             repeat(2) {
-                controller.newQuestion(); controller.question("Find the flower picture"); controller.ask(); advanceUntilIdle()
+                controller.newQuestion(); controller.question("Find the flower picture"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
                 assertEquals("Completed", controller.state.value.result!!.status)
                 assertEquals(listOf("flower"), controller.state.value.result!!.attachments.map { it.id })
             }
@@ -86,7 +86,7 @@ class MatchedSourceTests {
         val controller = AppController(root.path, db, runtime, ChatInputs(), worker = dispatcher)
         try {
             modelSpecs.take(2).forEach { controller.models.state(it, ModelState(installed = true)) }
-            controller.question("What is the recorded amount?"); controller.ask(); advanceUntilIdle()
+            controller.question("What is the recorded amount?"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertTrue(answered); assertEquals("Completed", controller.state.value.result!!.status)
             assertEquals(listOf("a-text"), controller.state.value.result!!.sources.map { it.id })
         } finally { controller.close(); runCurrent(); root.deleteRecursively(); Dispatchers.resetMain() }

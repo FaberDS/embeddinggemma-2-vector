@@ -3,7 +3,10 @@ package dev.pocketask
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Attachment(val id: String, val name: String, val path: String, val type: String, val prepared: Boolean = false, val isMemory: Boolean = false, val createdAt: Long? = null, val searchable: Boolean = false, val sourceUrl: String? = null) {
+data class Project(val id: String, val name: String)
+
+@Serializable
+data class Attachment(val id: String, val name: String, val path: String, val type: String, val prepared: Boolean = false, val isMemory: Boolean = false, val createdAt: Long? = null, val searchable: Boolean = false, val sourceUrl: String? = null, val projectIds: Set<String> = emptySet()) {
     val isImage get() = type.startsWith("image/")
     val isWebPage get() = type == "text/x-web-page"
     val needsImageDescriptions get() = isImage || type == "application/pdf"
@@ -16,10 +19,10 @@ data class Evidence(val id: String, val attachmentId: String, val name: String, 
 }
 
 @Serializable
-data class Answer(val id: String, val question: String, val attachments: List<Attachment>, val text: String = "", val sources: List<Evidence> = emptyList(), val status: String = "Preparing", val error: String? = null, val conversationId: String = id, val createdAt: Long? = null, val completedAt: Long? = null, val modelId: String? = null, val usesKnowledgeBase: Boolean = false, val timings: List<RequestTiming> = emptyList())
+data class Answer(val projectId: String, val id: String, val question: String, val attachments: List<Attachment>, val text: String = "", val sources: List<Evidence> = emptyList(), val status: String = "Preparing", val error: String? = null, val conversationId: String = id, val createdAt: Long? = null, val completedAt: Long? = null, val modelId: String? = null, val usesKnowledgeBase: Boolean = false, val timings: List<RequestTiming> = emptyList(), val contextItemIds: Set<String> = emptySet())
 
 @Serializable
-data class Draft(val question: String = "", val attachments: List<Attachment> = emptyList(), val conversationId: String? = null)
+data class Draft(val question: String = "", val attachments: List<Attachment> = emptyList(), val conversationId: String? = null, val projectId: String? = null)
 
 @Serializable
 data class MemoryDraft(val transcript: String = "", val title: String = "", val status: String = "Ready", val error: String? = null, val sourceId: String? = null)
@@ -49,7 +52,10 @@ data class UiState(val draft: Draft = Draft(), val history: List<Answer> = empty
     val answerModel: String = "answer", val onboarding: Int = 0, val screen: String = "ask", val stage: String? = null,
     val error: String? = null, val picking: Boolean = false, val importing: Boolean = false, val sourcesExpanded: Boolean = false, val memory: MemoryDraft? = null,
     val knowledge: KnowledgeStats? = null, val knowledgeLoading: Boolean = false, val knowledgeError: String? = null, val indexing: IndexingProgress? = null,
-    val importReport: ImportReport? = null, val telemetryEnabled: Boolean = false, val web: WebImport? = null)
+    val importReport: ImportReport? = null, val telemetryEnabled: Boolean = false, val web: WebImport? = null, val projects: List<Project> = emptyList()) {
+    val projectLibrary get() = library.filter { draft.projectId != null && draft.projectId in it.projectIds }
+    val projectHistory get() = history.filter { it.projectId == draft.projectId }
+}
 
 interface Completion { fun success(); fun failure(message: String) }
 interface VectorResult { fun success(values: List<Float>); fun failure(message: String) }

@@ -22,13 +22,13 @@ class RequestTimingTests {
         assertEquals("02:00:01.234", timingTimestamp(1234, TimeZone.of("+02:00")))
     }
 
-    @Test fun olderRepliesHaveNoInventedTimings() {
-        val answer = json.decodeFromString<Answer>("""{"id":"old","question":"Hello","attachments":[],"status":"Completed"}""")
+    @Test fun repliesWithoutTelemetryHaveNoInventedTimings() {
+        val answer = json.decodeFromString<Answer>("""{"id":"old","question":"Hello","attachments":[],"projectId":"test-project","status":"Completed"}""")
         assertTrue(answer.timings.isEmpty())
     }
 
     @Test fun copiedTelemetryIncludesDatesAndDurationsAndAnUnfinishedSnapshotIsLabelled() {
-        val answer = Answer("request-1", "Private question", emptyList(), text = "Private answer", status = "Answering", modelId = "answer", timings = listOf(
+        val answer = Answer("test-project", "request-1", "Private question", emptyList(), text = "Private answer", status = "Answering", modelId = "answer", timings = listOf(
             RequestTiming(0, 0, "Loading answer model", "Gemma 4 E2B IT"),
             RequestTiming(1200, 1200, "Waiting for first text", "GPU · 1800 prompt characters"),
             RequestTiming(3200, 3200, "First text displayed")))

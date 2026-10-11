@@ -6,8 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import dev.pocketask.db.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -130,11 +128,7 @@ private class TestIndexingTasks : IndexingTasks {
 
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTestApi::class)
 class IngestionTests {
-    private fun database(root: File): Store {
-        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
-        AppDatabase.Schema.create(driver)
-        return Store(driver, root.path)
-    }
+    private fun database(root: File) = chatStore(root.path)
 
     @Test fun ocrPassagesAreIndexedOnceAndRemainSearchableInNewChatsWithoutReadingImages() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler); Dispatchers.setMain(dispatcher)
@@ -156,7 +150,7 @@ class IngestionTests {
             assertEquals(3, inputs.textPages.size)
             val vectors = runtime.embeddings.count { !it.query }
             repeat(2) {
-                controller.newQuestion(); controller.question("Find INV-42"); controller.ask(); advanceUntilIdle()
+                controller.newQuestion(); controller.question("Find INV-42"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
                 assertEquals("Completed", controller.state.value.result!!.status)
                 assertContains(runtime.prompts.last(), "On-device OCR transcription")
                 assertTrue(runtime.answerImages.last().isEmpty())
@@ -270,7 +264,7 @@ class IngestionTests {
             repeat(2) {
                 controller.newQuestion()
                 assertEquals(2, controller.state.value.library.size)
-                controller.question("Question $it"); controller.ask(); advanceUntilIdle()
+                controller.question("Question $it"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
                 assertEquals("Completed", controller.state.value.result?.status)
             }
             assertEquals(2, inputs.reads)
@@ -297,7 +291,7 @@ class IngestionTests {
             assertEquals(0, inputs.reads)
             assertEquals(9, controller.state.value.library.size)
             assertTrue(controller.state.value.library.all { it.prepared })
-            controller.question("Find a picture"); controller.ask(); advanceUntilIdle()
+            controller.question("Find a picture"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertEquals("Completed", controller.state.value.result?.status)
             assertTrue(runtime.answerImages.single().isEmpty())
             assertEquals(9, runtime.descriptionImages.size)
@@ -363,7 +357,7 @@ class IngestionTests {
             controller.background(); advanceUntilIdle()
             assertNull(controller.state.value.stage)
             assertFalse(db.prepared(note))
-            controller.question("Search note"); controller.ask(); advanceUntilIdle()
+            controller.question("Search note"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertNull(controller.state.value.result)
             assertTrue(runtime.answerImages.isEmpty())
             controller.foreground(); advanceUntilIdle()
@@ -371,7 +365,7 @@ class IngestionTests {
             assertEquals(1, db.evidence(note.id, 0).size)
             late.success(List(256) { if (it == 1) 1f else 0f }); advanceUntilIdle()
             assertEquals(1f, db.evidence(note.id, 0).single().vector[0])
-            controller.ask(); advanceUntilIdle()
+            controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertEquals("Completed", controller.state.value.result?.status)
         } finally { controller.close(); advanceUntilIdle(); root.deleteRecursively(); Dispatchers.resetMain() }
     }
@@ -416,9 +410,9 @@ class IngestionTests {
             controller.models.state(modelSpecs[1], ModelState(installed = true))
             controller.addText("Permanent notes", "A fact for every conversation."); advanceUntilIdle()
             val note = controller.state.value.library.single()
-            controller.question("First chat"); controller.ask(); advanceUntilIdle()
+            controller.question("First chat"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             val first = controller.state.value.result!!
-            controller.newQuestion(); controller.question("Second chat"); controller.ask(); advanceUntilIdle()
+            controller.newQuestion(); controller.question("Second chat"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertNotEquals(first.conversationId, controller.state.value.result!!.conversationId)
             assertEquals(note.id, controller.state.value.result!!.sources.single().attachmentId)
             controller.clearHistory()
@@ -432,7 +426,7 @@ class IngestionTests {
             restored.models.state(modelSpecs[0], ModelState(installed = true))
             restored.models.state(modelSpecs[1], ModelState(installed = true)); advanceUntilIdle()
             assertTrue(runtime.embeddings.isEmpty())
-            restored.question("Third chat"); restored.ask(); advanceUntilIdle()
+            restored.question("Third chat"); restored.assignTestSources(); restored.ask(); advanceUntilIdle()
             assertEquals(note.id, restored.state.value.result!!.sources.single().attachmentId)
             assertTrue(runtime.embeddings.all { it.query && it.image == null })
             assertEquals(1, inputs.reads)
@@ -465,7 +459,7 @@ class IngestionTests {
             inputs.selection = listOf(File(root, "broken.pdf").apply { writeText("fixture") } to "application/pdf")
             controller.pick(false); advanceUntilIdle()
             assertEquals(1, controller.state.value.library.count { it.prepared })
-            controller.newQuestion(); controller.question("Search my knowledge"); controller.ask(); advanceUntilIdle()
+            controller.newQuestion(); controller.question("Search my knowledge"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertEquals("Completed", controller.state.value.result!!.status)
             assertEquals(setOf(ready.id, controller.state.value.library.last().id), controller.state.value.result!!.sources.map { it.attachmentId }.toSet())
             assertEquals(setOf(ready.id, controller.state.value.library.last().id), controller.state.value.result!!.attachments.map { it.id }.toSet())
@@ -528,12 +522,12 @@ class IngestionTests {
             val photo = controller.state.value.library.single()
             assertFalse(db.prepared(photo)); assertEquals("Description failed", controller.state.value.error)
             assertNull(db.imageDescription(db.evidence(photo.id, 0).single()))
-            controller.question("What is in the photo?"); controller.ask(); advanceUntilIdle()
+            controller.question("What is in the photo?"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertNull(controller.state.value.result); assertTrue(runtime.answerImages.isEmpty())
             runtime.failDescription = false
             controller.indexAttachments(); advanceUntilIdle()
             assertTrue(db.prepared(photo)); assertEquals(2, db.evidence(photo.id, 0).size)
-            controller.ask(); advanceUntilIdle()
+            controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertEquals("Completed", controller.state.value.result!!.status)
             assertTrue(runtime.answerImages.single().isEmpty())
         } finally { controller.close(); advanceUntilIdle(); root.deleteRecursively(); Dispatchers.resetMain() }
@@ -597,7 +591,7 @@ class IngestionTests {
             assertTrue(later.embeddings.isEmpty()); assertTrue(later.descriptionImages.isEmpty())
             File(photo.path).delete() // Saved descriptions answer even if original pixels cannot be read.
             repeat(2) {
-                restored.newQuestion(); restored.question("Find the yellow flower"); restored.ask(); advanceUntilIdle()
+                restored.newQuestion(); restored.question("Find the yellow flower"); restored.assignTestSources(); restored.ask(); advanceUntilIdle()
                 assertEquals("Completed", restored.state.value.result!!.status)
                 assertTrue(restored.state.value.result!!.sources.all { it.image == null && it.previewImage == photo.path })
                 assertContains(later.prompts.last(), "yellow flower")
@@ -630,7 +624,7 @@ class IngestionTests {
             assertEquals((0 until 100).toList(), inputs.textPages)
             assertEquals(100, runtime.embeddings.count { it.image == null && !it.query })
             runtime.holdDescriptionAt = 2 // Keep the resumed visual pass pending after answering.
-            controller.question("Find my PDF passage"); controller.ask(); advanceUntilIdle()
+            controller.question("Find my PDF passage"); controller.assignTestSources(); controller.ask(); advanceUntilIdle()
             assertEquals("Completed", controller.state.value.result!!.status)
             assertTrue(runtime.prompts.single().contains("Searchable passage"))
             assertTrue(runtime.answerImages.single().isEmpty())

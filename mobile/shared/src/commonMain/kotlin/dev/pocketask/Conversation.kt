@@ -21,7 +21,7 @@ fun messageTime(timestamp: Long?, now: Long, zone: TimeZone = TimeZone.currentSy
 
 fun conversationTurns(state: UiState, id: String? = state.draft.conversationId): List<Answer> {
     if (id == null) return emptyList()
-    return (state.history + listOfNotNull(state.result)).filter { it.conversationId == id }
+    return (state.history + listOfNotNull(state.result)).filter { it.conversationId == id && it.projectId == state.draft.projectId }
         .associateBy { it.id }.values.sortedWith(compareBy<Answer> { it.sentAt() ?: 0 }.thenBy { it.id })
 }
 
