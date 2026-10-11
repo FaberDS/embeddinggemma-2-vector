@@ -1,12 +1,16 @@
 package dev.pocketask
 
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -14,17 +18,27 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
-import dev.chrisbanes.haze.rememberHazeState
 import kotlin.math.abs
 import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NavigationUiTests {
+    @Test fun navigationBackingHidesTheContentBehindIt() = runComposeUiTest {
+        var behind by mutableStateOf(Color.Red)
+        setContent { MaterialTheme { Box(Modifier.background(behind)) {
+            GlassNavigation("ask", {}, Modifier.width(340.dp))
+        } } }
+        fun backing() = onNodeWithTag("navigation").captureToImage().toPixelMap().let { it[it.width / 2, (3 * density.density).toInt()] }
+        val before = backing()
+        runOnIdle { behind = Color.Blue }
+        assertEquals(before, backing())
+    }
+
     @Test fun tabsRemainAccessibleAndSwitchSelectionInBothThemes() = runComposeUiTest {
         var screen by mutableStateOf("ask")
         var dark by mutableStateOf(false)
         setContent { MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
-            GlassNavigation(screen, { screen = it }, rememberHazeState(), Modifier.width(340.dp))
+            GlassNavigation(screen, { screen = it }, Modifier.width(340.dp))
         } }
         onNodeWithTag("navigation.ask").assertIsSelected()
         for (route in listOf("assets", "history", "settings", "ask")) {
@@ -42,7 +56,7 @@ class NavigationUiTests {
 
     @Test fun anOpenHistoryConversationKeepsHistorySelected() = runComposeUiTest {
         setContent { MaterialTheme {
-            GlassNavigation("detail", {}, rememberHazeState(), Modifier.width(340.dp))
+            GlassNavigation("detail", {}, Modifier.width(340.dp))
         } }
         onNodeWithTag("navigation.history").assertIsSelected()
         onNodeWithTag("navigation.ask").assertIsNotSelected()
@@ -52,7 +66,7 @@ class NavigationUiTests {
 
     @Test fun tappingMovesOneSelectorThroughIntermediatePositions() = runComposeUiTest {
         var screen by mutableStateOf("ask")
-        setContent { MaterialTheme { GlassNavigation(screen, { screen = it }, rememberHazeState(), Modifier.width(340.dp)) } }
+        setContent { MaterialTheme { GlassNavigation(screen, { screen = it }, Modifier.width(340.dp)) } }
         val selector = onNodeWithTag("navigation.selector")
         val start = selector.fetchSemanticsNode().boundsInRoot.center.x
         val end = onNodeWithTag("navigation.settings").fetchSemanticsNode().boundsInRoot.center.x
@@ -71,7 +85,7 @@ class NavigationUiTests {
         var screen by mutableStateOf("ask")
         val changes = mutableListOf<String>()
         var width by mutableStateOf(340.dp)
-        setContent { MaterialTheme { GlassNavigation(screen, { changes += it; screen = it }, rememberHazeState(), Modifier.width(width)) } }
+        setContent { MaterialTheme { GlassNavigation(screen, { changes += it; screen = it }, Modifier.width(width)) } }
         val bar = onNodeWithTag("navigation")
         val ask = onNodeWithTag("navigation.ask").centerWithin(bar)
         val assets = onNodeWithTag("navigation.assets").centerWithin(bar)
@@ -115,7 +129,7 @@ class NavigationUiTests {
         var screen by mutableStateOf("ask")
         val changes = mutableListOf<String>()
         setContent { CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) { MaterialTheme {
-            GlassNavigation(screen, { changes += it; screen = it }, rememberHazeState(), Modifier.width(340.dp))
+            GlassNavigation(screen, { changes += it; screen = it }, Modifier.width(340.dp))
         } } }
         val bar = onNodeWithTag("navigation")
         val ask = onNodeWithTag("navigation.ask").centerWithin(bar)
@@ -136,7 +150,7 @@ class NavigationUiTests {
     @Test fun shortAndVerticalDragsKeepAnOpenConversationAndOversizedDragsStayInTheBar() = runComposeUiTest {
         var screen by mutableStateOf("detail")
         val changes = mutableListOf<String>()
-        setContent { MaterialTheme { GlassNavigation(screen, { changes += it; screen = it }, rememberHazeState(), Modifier.width(340.dp)) } }
+        setContent { MaterialTheme { GlassNavigation(screen, { changes += it; screen = it }, Modifier.width(340.dp)) } }
         val bar = onNodeWithTag("navigation")
         val history = onNodeWithTag("navigation.history").centerWithin(bar)
         val settings = onNodeWithTag("navigation.settings").centerWithin(bar)

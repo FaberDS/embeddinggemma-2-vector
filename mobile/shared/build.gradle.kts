@@ -27,8 +27,6 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
-            implementation("dev.chrisbanes.haze:haze:2.0.1")
-            implementation("dev.chrisbanes.haze:haze-glass:2.0.1")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")

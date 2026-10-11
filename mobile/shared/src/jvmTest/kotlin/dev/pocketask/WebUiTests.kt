@@ -53,8 +53,10 @@ class WebUiTests {
             onNodeWithTag("assets.filter.Web pages").performScrollTo().performClick().assertIsSelected()
             onNodeWithText("Web page · Waiting to index").assertIsDisplayed()
             val source = controller.state.value.library.single()
+            onNodeWithTag("assets.actions.${source.id}").performClick()
             onNodeWithTag("assets.url.${source.id}").performClick()
             runOnIdle { assertEquals(source.sourceUrl to 1, inputs.opened.last()) }
+            onNodeWithTag("assets.actions.${source.id}").performClick()
             onNodeWithTag("assets.open.${source.id}").performClick()
             runOnIdle { assertEquals(source.path to 1, inputs.opened.last()) }
         } finally { controller.close(); Dispatchers.resetMain(); root.deleteRecursively() }

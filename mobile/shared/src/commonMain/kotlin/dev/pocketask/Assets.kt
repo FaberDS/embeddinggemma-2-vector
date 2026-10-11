@@ -1,17 +1,19 @@
 package dev.pocketask
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -43,10 +45,10 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
             else -> true
         }
     }
-    LazyVerticalGrid(GridCells.Adaptive(150.dp), modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("assets.grid"),
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+    LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp).testTag("assets.grid"),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(top = 12.dp, bottom = navigationSpace + 12.dp)) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Your assets", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
@@ -76,15 +78,15 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                 IndexingState(controller, state)
             }
         }
-        if (assets.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+        if (assets.isEmpty()) item {
             Text(if (state.library.isEmpty()) "Add an image, document or memory to start your knowledge base." else "No ${filter.lowercase()} yet.",
                 Modifier.padding(vertical = 24.dp).testTag("assets.empty"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        items(assets, key = { it.id }, span = { if (it.isImage) GridItemSpan(1) else GridItemSpan(maxLineSpan) }) { source ->
+        items(assets, key = { it.id }) { source ->
             AssetCard(source, busy, { controller.open(source.path) }, { removing = source }, { source.sourceUrl?.let { controller.open(it) } },
                 state.projects.filter { it.id in source.projectIds }.map { it.name }.ifEmpty { listOf("Unassigned") }, { memberships = source.id })
         }
-        state.error?.let { error -> item(span = { GridItemSpan(maxLineSpan) }) { ErrorCard(error, controller::dismissError) } }
+        state.error?.let { error -> item { ErrorCard(error, controller::dismissError) } }
     }
     removing?.let { source -> ConfirmRemoveSource(source, { controller.removeAttachment(source.id); removing = null }, { removing = null }) }
     if (writing) WriteTextDialog(controller, state) { writing = false }
@@ -93,6 +95,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
 
 @Composable
 private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remove: () -> Unit, openUrl: () -> Unit, projects: List<String>, memberships: () -> Unit) {
+    var actions by remember { mutableStateOf(false) }
     val kind = when {
         source.isMemory -> "Transcript"
         source.isImage -> "Image"
@@ -102,50 +105,63 @@ private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remov
         source.type == "text/plain" -> "Text"
         else -> "Document"
     }
-    OutlinedCard(onClick = open, modifier = Modifier.fillMaxWidth().testTag("assets.item.${source.id}")) {
-        if (source.isImage) AsyncImage(source.path, contentDescription = source.name, modifier = Modifier.fillMaxWidth().height(160.dp), contentScale = ContentScale.Crop)
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Card(onClick = open, modifier = Modifier.fillMaxWidth().testTag("assets.item.${source.id}"),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!source.isImage) {
-                    if (source.isMemory) MicrophoneIcon(false) else Icon(DocumentIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                if (source.isImage) AsyncImage(source.path, contentDescription = null, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                else Surface(Modifier.size(64.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (source.isMemory) MicrophoneIcon(false) else Icon(DocumentIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                    }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(if (source.isMemory) source.name.removeSuffix(".md") else source.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(if (source.isMemory) source.name.removeSuffix(".md") else source.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text("$kind · ${if (source.prepared) "Indexed" else if (source.searchable) "Text searchable · visual indexing pending" else "Waiting to index"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Box {
+                    IconButton(onClick = { actions = true }, modifier = Modifier.size(48.dp).testTag("assets.actions.${source.id}")) {
+                        Icon(AssetActionsIcon, contentDescription = "Actions for ${source.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(actions, { actions = false }) {
+                        DropdownMenuItem(text = { Text(if (source.isWebPage) "Saved content" else "Open") },
+                            leadingIcon = { Icon(DocumentIcon, contentDescription = null) },
+                            onClick = { actions = false; open() }, modifier = Modifier.testTag("assets.open.${source.id}"))
+                        if (source.isWebPage) DropdownMenuItem(text = { Text("Open original URL") },
+                            leadingIcon = { Icon(OpenAssetIcon, contentDescription = null) },
+                            onClick = { actions = false; openUrl() }, modifier = Modifier.testTag("assets.url.${source.id}"))
+                        DropdownMenuItem(text = { Text("Remove", color = if (busy) LocalContentColor.current else MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(RemoveAssetIcon, contentDescription = null) }, enabled = !busy,
+                            onClick = { actions = false; remove() }, modifier = Modifier.testTag("assets.remove.${source.id}"))
+                    }
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 projects.forEachIndexed { index, name ->
                     AssistChip(onClick = memberships, enabled = !busy, shape = CircleShape,
                         modifier = Modifier.testTag(if (index == 0) "assets.projects.${source.id}" else "assets.projects.${source.id}.$index"),
-                        label = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        colors = AssistChipDefaults.assistChipColors(containerColor = if (source.projectIds.isEmpty()) MaterialTheme.colorScheme.surface
-                            else MaterialTheme.colorScheme.secondaryContainer, labelColor = MaterialTheme.colorScheme.onSecondaryContainer))
+                        label = { Text(name, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        border = null,
+                        colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant))
                 }
             }
             if (source.isWebPage) {
-                source.sourceUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2) }
-                source.createdAt?.let { Text("Imported ${timingTimestamp(it)}", style = MaterialTheme.typography.labelSmall) }
-                TextButton(onClick = openUrl, modifier = Modifier.testTag("assets.url.${source.id}")) {
-                    Icon(OpenAssetIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Open original URL")
-                }
-            }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                FilledTonalButton(onClick = open, contentPadding = PaddingValues(horizontal = 10.dp), modifier = Modifier.testTag("assets.open.${source.id}")) {
-                    Icon(DocumentIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (source.isWebPage) "Saved content" else "Open")
-                }
-                IconButton(onClick = remove, enabled = !busy, modifier = Modifier.testTag("assets.remove.${source.id}")) {
-                    Icon(RemoveAssetIcon, contentDescription = "Remove ${source.name}", tint = if (busy) LocalContentColor.current else MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp))
-                }
+                source.sourceUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                source.createdAt?.let { Text("Imported ${timingTimestamp(it)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }
 }
+
+private val AssetActionsIcon = ImageVector.Builder("AssetActions", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        listOf(5f, 12f, 19f).forEach { x ->
+            moveTo(x - 1.5f, 12f); arcTo(1.5f, 1.5f, 0f, true, true, x + 1.5f, 12f)
+            arcTo(1.5f, 1.5f, 0f, true, true, x - 1.5f, 12f); close()
+        }
+    }
+}.build()
 
 private val AddAssetIcon = lineIcon("AddAsset") {
     moveTo(12f, 5f); lineTo(12f, 19f); moveTo(5f, 12f); lineTo(19f, 12f)

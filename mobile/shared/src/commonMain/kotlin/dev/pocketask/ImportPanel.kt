@@ -47,6 +47,7 @@ internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step
         progress?.remainingSeconds != null && current == progress.phase -> "${formatRemaining(progress.remainingSeconds)} in this step"
         active -> "Estimating this step…"
         report.status == "Completed" -> "Saved to your knowledge base"
+        report.status == "Waiting to index" -> "Tap for indexing and model setup"
         else -> "Completed work is saved"
     }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), shape = RoundedCornerShape(18.dp),
@@ -82,7 +83,11 @@ internal fun ImportPanel(report: ImportReport, progress: IndexingProgress?, step
                         if (progress != null) TextButton(onClick = onPause, modifier = Modifier.testTag("import.pause")) { Text("Pause") }
                         else if (!copying && (report.status != "Completed" || report.stages.any { it.status != ImportStageStatus.Completed }))
                             TextButton(onClick = onResume, enabled = canResume, modifier = Modifier.testTag("import.resume")) {
-                                Text(if (report.status == "Waiting for answer model") "Set up model" else "Resume")
+                                Text(when (report.status) {
+                                    "Waiting for answer model" -> "Set up model"
+                                    "Waiting to index" -> "Continue"
+                                    else -> "Resume"
+                                })
                             }
                     }
                     if (progress?.background == true) Text("Can continue in the background", Modifier.padding(horizontal = 14.dp), style = MaterialTheme.typography.bodySmall)

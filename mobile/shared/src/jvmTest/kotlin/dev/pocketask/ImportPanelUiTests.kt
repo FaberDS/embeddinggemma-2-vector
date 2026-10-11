@@ -24,6 +24,15 @@ class ImportPanelUiTests {
     private val asset = Attachment("report", "Research report.pdf", "/report.pdf", "application/pdf")
     private val report = ImportReport(importStages(listOf(asset), mapOf(asset.id to IndexCheckpoint(100, 100, ocr = 42)), asset.id, "Indexing recognized text"), "Indexing")
 
+    @Test fun waitingImportsExplainTheNextStepAndOfferAnAction() = runComposeUiTest {
+        var resumed = false
+        setContent { MaterialTheme { ImportPanel(ImportReport(importStages(listOf(asset), emptyMap())), null, null, false, {}, { resumed = true }) } }
+        onNodeWithTag("import.estimate", useUnmergedTree = true).assertTextEquals("Tap for indexing and model setup")
+        onNodeWithTag("import.header").performClick()
+        onNodeWithTag("import.resume").assertTextEquals("Continue").performClick()
+        runOnIdle { assertTrue(resumed) }
+    }
+
     @Test fun headerShowsCurrentStepAndPhaseEstimateAndTappingRevealsThePipeline() = runComposeUiTest {
         var pauses = 0
         setContent {

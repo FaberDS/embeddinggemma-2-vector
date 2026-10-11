@@ -20,8 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.painterResource
 import pocketask.shared.generated.resources.Res
 import pocketask.shared.generated.resources.pocket_ask_logo
@@ -32,7 +30,6 @@ private val Accent = Color(0xFF4C6758)
 fun PocketAskApp(controller: AppController) {
     val state by controller.state.collectAsState()
     val models by controller.models.states.collectAsState()
-    val haze = rememberHazeState()
     val showNavigation = WindowInsets.ime.getBottom(LocalDensity.current) == 0
     val navigationSpace = if (showNavigation) 88.dp else 0.dp
     val colors = if (isSystemInDarkTheme()) darkColorScheme(primary = Color(0xFFADD0B7), primaryContainer = Color(0xFF304437), onPrimaryContainer = Color(0xFFD5EAD8), secondaryContainer = Color(0xFF304437), onSecondaryContainer = Color(0xFFD5EAD8))
@@ -41,7 +38,7 @@ fun PocketAskApp(controller: AppController) {
         Surface(Modifier.fillMaxSize()) {
             if (state.onboarding < 2) Onboarding(controller, state, models)
             else Box(Modifier.fillMaxSize().imePadding()) {
-                Scaffold(modifier = Modifier.fillMaxSize().hazeSource(haze),
+                Scaffold(modifier = Modifier.fillMaxSize(),
                     topBar = {
                         Column {
                             Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -61,7 +58,7 @@ fun PocketAskApp(controller: AppController) {
                         else -> Chat(controller, state, models, Modifier.padding(padding).padding(bottom = navigationSpace))
                     }
                 }
-                if (showNavigation) GlassNavigation(state.screen, controller::screen, haze,
+                if (showNavigation) GlassNavigation(state.screen, controller::screen,
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp))
             }
             state.memory?.let { MemoryDialog(controller, it, state) }
