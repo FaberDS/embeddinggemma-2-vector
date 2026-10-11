@@ -11,7 +11,7 @@ import kotlin.test.*
 private fun store(): Store {
     val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
     AppDatabase.Schema.create(driver)
-    return Store(driver)
+    return Store(driver).also { it.saveProject(Project("test-project", "Test project")); it.saveDraft(Draft(projectId = "test-project")) }
 }
 private fun vector(index: Int) = List(256) { if (it == index) 1f else 0f }
 private fun source(id: String, owner: String, index: Int = 0, image: String? = null) = Evidence(id, owner, "$owner.pdf", 1, "Evidence $id", image, vector(index))
@@ -46,7 +46,7 @@ class RetrievalTests {
         val directory = Files.createTempDirectory("pocketask-test").toFile()
         val attachment = Attachment("shared", "shared.txt", "${directory.path}/inputs/shared/original.txt", "text/plain")
         java.io.File(attachment.path).apply { parentFile.mkdirs(); writeText("Saved evidence") }
-        db.save(Answer("1", "First", listOf(attachment), status = "Answering", text = "Partial"))
+        db.save(Answer("test-project", "1", "First", listOf(attachment), status = "Answering", text = "Partial"))
         assertEquals("Interrupted", db.history().single().status)
         db.clean(listOf(attachment), setOf(attachment.id), directory.path)
         assertTrue(java.io.File(attachment.path).exists())

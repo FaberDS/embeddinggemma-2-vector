@@ -45,7 +45,8 @@ fun PocketAskApp(controller: AppController) {
                     topBar = {
                         Column {
                             Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Locune", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                Text("Locune", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                                ProjectSelector(controller, state, Modifier.weight(1f).padding(start = 12.dp))
                                 if (state.screen == "ask" && state.draft.conversationId != null) TextButton(onClick = controller::newQuestion, enabled = (state.stage == null || state.indexing != null) && !state.picking && !state.importing) { Text("New chat") }
                             }
                             ImportHeader(controller, state)
@@ -97,28 +98,29 @@ internal fun IndexingState(controller: AppController, state: UiState) {
 private fun History(controller: AppController, state: UiState, modifier: Modifier, navigationSpace: Dp) {
     var clear by remember { mutableStateOf(false) }
     val now = rememberChatTime()
-    val conversations = conversationSummaries(state.history)
+    val history = state.projectHistory
+    val conversations = conversationSummaries(history)
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(top = 12.dp, bottom = navigationSpace + 12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Your history", modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-                if (state.history.isNotEmpty()) TextButton(onClick = { clear = true }) { Text("Clear") }
+                if (history.isNotEmpty()) TextButton(onClick = { clear = true }) { Text("Clear") }
             }
         }
         if (controller.canUndo()) item { TextButton(onClick = controller::undoDelete) { Text("Entry deleted · Undo") } }
-        if (state.history.isEmpty()) item { Text("Your questions and answers will appear here. Everything stays on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (history.isEmpty()) item { Text("This project's questions and answers will appear here. Everything stays on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         items(conversations, key = { it.conversationId }) { answer ->
             OutlinedCard(onClick = { controller.showHistory(answer) }, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(conversationTurns(state, answer.conversationId).firstOrNull()?.question ?: answer.question, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-                    Text("${state.history.count { it.conversationId == answer.conversationId }} questions · ${messageTime(answer.completedAt ?: answer.sentAt(), now)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${history.count { it.conversationId == answer.conversationId }} questions · ${messageTime(answer.completedAt ?: answer.sentAt(), now)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (answer.text.isNotBlank()) Text(answer.text, maxLines = 2, style = MaterialTheme.typography.bodyMedium)
                     TextButton(onClick = { controller.deleteConversation(answer.conversationId) }, enabled = state.stage == null) { Text("Delete") }
                 }
             }
         }
     }
-    if (clear) AlertDialog(onDismissRequest = { clear = false }, title = { Text("Clear history?") }, text = { Text("Saved conversations will be removed. Your knowledge base is kept.") }, confirmButton = { TextButton(onClick = { controller.clearHistory(); clear = false }) { Text("Clear history") } }, dismissButton = { TextButton(onClick = { clear = false }) { Text("Keep history") } })
+    if (clear) AlertDialog(onDismissRequest = { clear = false }, title = { Text("Clear project history?") }, text = { Text("This project's saved conversations will be removed. Your items are kept.") }, confirmButton = { TextButton(onClick = { controller.clearHistory(); clear = false }) { Text("Clear history") } }, dismissButton = { TextButton(onClick = { clear = false }) { Text("Keep history") } })
 }
 
 @Composable

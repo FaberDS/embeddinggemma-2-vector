@@ -24,7 +24,7 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class AssetsUiTests {
-    @Test fun assetsShowTheGlobalLibraryAndFilterOpenAndRemoveWithoutReindexing() = runComposeUiTest {
+    @Test fun assetsShowAllItemsAndFilterOpenAndRemoveWithoutReindexing() = runComposeUiTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val root = Files.createTempDirectory("assets-ui").toFile()
         val db = chatStore(root.path)
@@ -70,8 +70,10 @@ class AssetsUiTests {
             val screenshot = BufferedImage(pixels.width, pixels.height, BufferedImage.TYPE_INT_ARGB)
             for (y in 0 until pixels.height) for (x in 0 until pixels.width) screenshot.setRGB(x, y, pixels[x, y].toArgb())
             ImageIO.write(screenshot, "png", File("/private/tmp/pocketask-assets-preview.png"))
-            onNodeWithTag("assets.open.${rose.id}").performClick()
+            onNodeWithTag("assets.grid").performScrollToIndex(1)
+            onNodeWithTag("assets.open.${rose.id}").performScrollTo().performClick()
             runOnIdle { assertEquals(rose.path to 1, inputs.opened.last()) }
+            onNodeWithTag("assets.grid").performScrollToIndex(0)
             onNodeWithTag("assets.filter.Documents").performScrollTo().performClick().assertIsSelected()
             onNodeWithTag("assets.item.${rose.id}").assertDoesNotExist()
             onNodeWithTag("assets.item.${memory.id}").assertDoesNotExist()
@@ -79,6 +81,7 @@ class AssetsUiTests {
             onNodeWithText("Markdown · Waiting to index").assertIsDisplayed()
             onNodeWithTag("assets.open.${pdf.id}").performClick()
             runOnIdle { assertEquals(pdf.path to 1, inputs.opened.last()) }
+            onNodeWithTag("assets.grid").performScrollToIndex(0)
             onNodeWithTag("assets.filter.Memories").performScrollTo().performClick().assertIsSelected()
             onNodeWithText("Garden ideas").assertIsDisplayed()
             onNodeWithText("Transcript · Indexed").assertIsDisplayed()

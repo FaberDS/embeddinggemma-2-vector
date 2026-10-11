@@ -41,13 +41,14 @@ class SpeechUiTests {
             waitUntil(timeoutMillis = 10_000) { controller.state.value.library.singleOrNull()?.prepared == true }
             onNodeWithText("Memory saved").assertIsDisplayed()
             onNodeWithText("Garden layout ideas").assertIsDisplayed()
-            onNodeWithText("Indexed · available in every chat").assertIsDisplayed()
+            onNodeWithText("Indexed · assign to projects from Assets").assertIsDisplayed()
             val pixels = onNodeWithTag("memory.dialog").captureToImage().toPixelMap()
             val screenshot = BufferedImage(pixels.width, pixels.height, BufferedImage.TYPE_INT_ARGB)
             for (y in 0 until pixels.height) for (x in 0 until pixels.width) screenshot.setRGB(x, y, pixels[x, y].toArgb())
             ImageIO.write(screenshot, "png", File("/private/tmp/pocketask-memory-preview.png"))
             onNodeWithTag("memory.save").assertTextContains("Done").performClick()
             onNodeWithTag("chat.input").assertTextContains("Keep my chat draft")
+            runOnIdle { controller.assignTestSources() }
             onNodeWithTag("chat.manageSources").performClick()
             onNodeWithText("Garden layout ideas.md").assertIsDisplayed()
             onNodeWithText("Memory · Indexed").assertIsDisplayed()

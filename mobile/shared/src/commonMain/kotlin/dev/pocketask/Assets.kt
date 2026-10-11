@@ -31,6 +31,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
     var adding by remember { mutableStateOf(false) }
     var writing by rememberSaveable { mutableStateOf(false) }
     var removing by remember { mutableStateOf<Attachment?>(null) }
+    var memberships by remember { mutableStateOf<String?>(null) }
     val busy = state.stage != null || state.picking || state.importing
     val assets = state.library.filter { source ->
         when (filter) {
@@ -60,7 +61,7 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                     }
                 }
                 Text("${state.library.size} ${if (state.library.size == 1) "asset" else "assets"} · ${state.library.count { it.prepared || it.searchable }} searchable", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Available to every chat.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Assign items to projects to make them available to chats. Unassigned items stay out of project context.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(listOf("All", "Images", "Documents", "Memories", "Web pages")) { category ->
                         FilterChip(filter == category, { filter = category }, label = { Text(category, style = MaterialTheme.typography.labelMedium) }, modifier = Modifier.testTag("assets.filter.$category"))
@@ -75,16 +76,18 @@ internal fun Assets(controller: AppController, state: UiState, modifier: Modifie
                 Modifier.padding(vertical = 24.dp).testTag("assets.empty"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         items(assets, key = { it.id }, span = { if (it.isImage) GridItemSpan(1) else GridItemSpan(maxLineSpan) }) { source ->
-            AssetCard(source, busy, { controller.open(source.path) }, { removing = source }, { source.sourceUrl?.let { controller.open(it) } })
+            AssetCard(source, busy, { controller.open(source.path) }, { removing = source }, { source.sourceUrl?.let { controller.open(it) } },
+                state.projects.filter { it.id in source.projectIds }.joinToString { it.name }.ifEmpty { "Unassigned" }, { memberships = source.id })
         }
         state.error?.let { error -> item(span = { GridItemSpan(maxLineSpan) }) { ErrorCard(error, controller::dismissError) } }
     }
     removing?.let { source -> ConfirmRemoveSource(source, { controller.removeAttachment(source.id); removing = null }, { removing = null }) }
     if (writing) WriteTextDialog(controller, state) { writing = false }
+    memberships?.let { ItemProjects(controller, state, it) { memberships = null } }
 }
 
 @Composable
-private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remove: () -> Unit, openUrl: () -> Unit) {
+private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remove: () -> Unit, openUrl: () -> Unit, projects: String, memberships: () -> Unit) {
     val kind = when {
         source.isMemory -> "Transcript"
         source.isImage -> "Image"
@@ -105,6 +108,9 @@ private fun AssetCard(source: Attachment, busy: Boolean, open: () -> Unit, remov
                     Text(if (source.isMemory) source.name.removeSuffix(".md") else source.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text("$kind · ${if (source.prepared) "Indexed" else if (source.searchable) "Text searchable · visual indexing pending" else "Waiting to index"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            TextButton(onClick = memberships, enabled = !busy, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.fillMaxWidth().testTag("assets.projects.${source.id}")) {
+                Text("Projects · $projects", style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             if (source.isWebPage) {
                 source.sourceUrl?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2) }
@@ -136,7 +142,7 @@ internal fun WriteTextDialog(controller: AppController, state: UiState, dismiss:
     val busy = state.stage != null || state.picking || state.importing
     AlertDialog(onDismissRequest = dismiss, title = { Text("Write a source") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Save as Markdown in your knowledge base. Every chat can search it.", style = MaterialTheme.typography.bodySmall)
+            Text("Save as Markdown, then assign it to projects from Assets.", style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(title, { title = it }, label = { Text("Title (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("chat.noteTitle"))
             OutlinedTextField(text, { text = it }, label = { Text("Text or Markdown") }, minLines = 6, maxLines = 12, modifier = Modifier.fillMaxWidth().testTag("chat.noteText"))
         }

@@ -77,15 +77,20 @@ class ChatFlowUiTests {
             onNodeWithTag("chat.send").assertIsNotEnabled()
             onNodeWithText("New chat").performClick()
             onNodeWithTag("chat.manageSources").performClick()
-            onNodeWithText("Your knowledge base").assertIsDisplayed()
+            onNodeWithText("Project sources").assertIsDisplayed()
+            onNodeWithText("No items assigned. Add items to this project from Assets.").assertIsDisplayed()
+            onNodeWithText("Assign items").performClick()
+            val sourceId = controller.state.value.library.single().id
+            onNodeWithTag("assets.projects.$sourceId").performScrollTo().performClick()
+            onNodeWithTag("assets.membership.test-project").performClick().assertIsOn()
+            onNodeWithText("Done").performClick()
+            onNodeWithTag("navigation.ask").performClick()
+            onNodeWithTag("chat.manageSources").performClick()
             onNodeWithText("My source.md").assertIsDisplayed()
-            onNodeWithText("Remove").performClick()
-            onNodeWithText("Keep source").performClick()
-            runOnIdle { assertEquals(1, controller.state.value.library.size) }
-            onNodeWithText("Remove").performClick()
-            onNodeWithTag("knowledge.remove").performClick()
+            onNodeWithText("Unassign").performClick()
             runOnIdle {
-                assertTrue(controller.state.value.library.isEmpty())
+                assertEquals(1, controller.state.value.library.size)
+                assertTrue(controller.state.value.projectLibrary.isEmpty())
                 assertEquals(2, controller.state.value.history.size)
             }
         } finally { controller.close(); root.deleteRecursively(); Dispatchers.resetMain() }

@@ -198,17 +198,17 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
     val keyboard = LocalSoftwareKeyboardController.current
     var actions by remember { mutableStateOf(false) }
     var sources by rememberSaveable { mutableStateOf(false) }
-    var removing by remember { mutableStateOf<Attachment?>(null) }
     var writing by rememberSaveable { mutableStateOf(false) }
     val busy = state.stage != null || state.picking || state.importing
     val answering = (state.stage != null && state.indexing == null) || state.picking || state.importing
-    val needsSetup = !models.getValue(state.answerModel).installed || (state.library.isNotEmpty() && !models.getValue("search").installed)
-    val canSend = !speech.listening && !answering && state.draft.question.isNotBlank() && (needsSetup || state.library.isEmpty() || state.library.any { it.prepared || it.searchable })
+    val library = state.projectLibrary
+    val needsSetup = !models.getValue(state.answerModel).installed || (library.isNotEmpty() && !models.getValue("search").installed)
+    val canSend = state.draft.projectId != null && !speech.listening && !answering && state.draft.question.isNotBlank() && (needsSetup || library.isEmpty() || library.any { it.prepared || it.searchable })
     fun send() { if (canSend) { keyboard?.hide(); if (needsSetup) controller.settings() else controller.ask() } }
     Surface(tonalElevation = 2.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (state.library.isNotEmpty()) TextButton(onClick = { sources = true }, modifier = Modifier.testTag("chat.manageSources"), contentPadding = PaddingValues(horizontal = 4.dp)) {
-                Text("Knowledge base · ${state.library.size} sources · ${state.library.count { it.prepared || it.searchable }} searchable", style = MaterialTheme.typography.labelMedium)
+            if (state.draft.projectId != null) TextButton(onClick = { sources = true }, modifier = Modifier.testTag("chat.manageSources"), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Text("Project sources · ${library.size} sources · ${library.count { it.prepared || it.searchable }} searchable", style = MaterialTheme.typography.labelMedium)
             }
             state.stage?.takeIf { state.indexing == null }?.let { stage -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -216,7 +216,7 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
                 TextButton(onClick = controller::stop) { Text("Stop") }
             } }
             if (state.picking && !state.importing) Text("Choose sources", style = MaterialTheme.typography.bodySmall)
-            if (!busy && state.library.any { !it.prepared }) TextButton(onClick = { if (models.getValue("search").installed) controller.indexAttachments(true) else controller.settings() }) {
+            if (!busy && library.any { !it.prepared }) TextButton(onClick = { if (models.getValue("search").installed) controller.indexAttachments(true) else controller.settings() }) {
                 Text(if (models.getValue("search").installed) "Index pending sources" else "Set up search model")
             }
             state.error?.let { error -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -248,19 +248,20 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
             if (needsSetup && !busy) TextButton(onClick = { controller.settings() }) { Text("Set up models") }
         }
     }
-    if (sources) AlertDialog(onDismissRequest = { sources = false }, title = { Text("Your knowledge base") }, text = {
+    if (sources) AlertDialog(onDismissRequest = { sources = false }, title = { Text("Project sources") }, text = {
         LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(state.library, key = { it.id }) { attachment ->
+            if (library.isEmpty()) item { Text("No items assigned. Add items to this project from Assets.") }
+            items(library, key = { it.id }) { attachment ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         TextButton(onClick = { controller.open(attachment.path) }, contentPadding = PaddingValues(0.dp)) { Text(attachment.name, maxLines = 2) }
                         Text(listOfNotNull(if (attachment.isMemory) "Memory" else null, if (attachment.prepared) "Indexed" else if (attachment.searchable) "Text searchable · visual indexing pending" else "Waiting to index").joinToString(" · "), style = MaterialTheme.typography.labelSmall)
                     }
-                    TextButton(onClick = { removing = attachment }, enabled = !busy) { Text("Remove") }
+                    TextButton(onClick = { controller.setMembership(attachment.id, state.draft.projectId ?: return@TextButton, false) }, enabled = controller.canEditProjects) { Text("Unassign") }
                 }
             }
         }
-    }, confirmButton = { TextButton(onClick = { sources = false }) { Text("Done") } })
-    removing?.let { source -> ConfirmRemoveSource(source, { controller.removeAttachment(source.id); removing = null }, { removing = null }) }
+    }, confirmButton = { TextButton(onClick = { sources = false }) { Text("Done") } },
+        dismissButton = { TextButton(onClick = { sources = false; controller.screen("assets") }) { Text("Assign items") } })
     if (writing) WriteTextDialog(controller, state) { writing = false }
 }

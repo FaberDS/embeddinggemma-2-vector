@@ -78,7 +78,7 @@ class PreloadTests {
         val root = Files.createTempDirectory("warm-search").toFile()
         val store = chatStore(root.path)
         val pdf = Attachment("pdf", "Report.pdf", "/missing.pdf", "application/pdf")
-        store.saveSource(pdf); store.markPrepared(pdf)
+        store.saveSource(pdf.copy(projectIds = setOf("test-project"))); store.markPrepared(pdf)
         store.addEvidence(Evidence("passage", pdf.id, pdf.name, 1, "Core Web Vitals", null, List(256) { if (it == 0) 1f else 0f }))
         val runtime = WarmRuntime()
         val controller = AppController(root.path, store, runtime, ChatInputs(), worker = dispatcher)
