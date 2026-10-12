@@ -19,7 +19,7 @@ internal class MemoryRuntime : LocalRuntime {
         if (!query) indexed += text
         callback.success(List(256) { if (it == 0) 1f else 0f })
     }
-    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
         assertTrue(images.isEmpty())
         if (prompt.startsWith("Recorded memory transcript:")) {
             titles++; title = callback

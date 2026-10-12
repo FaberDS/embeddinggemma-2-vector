@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
@@ -12,6 +14,33 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class ChatMessageUiTests {
+    @Test fun replyLinksOpenWhileStreamingAndAfterCompletionAlongsideLocalCitations() = runComposeUiTest {
+        val pdf = Attachment("pdf", "Report.pdf", "/earlier-chat/report.pdf", "application/pdf")
+        val answer = mutableStateOf(Answer("test-project", "links", "Show links", listOf(pdf),
+            text = "[Docs](<https://example.com/guide#setup> \"Guide\") and http://example.org/help. [S1].", status = "Answering",
+            sources = listOf(Evidence("page", pdf.id, pdf.name, 3, "Passage", null, emptyList()))))
+        val opened = mutableListOf<Pair<String, Int>>()
+        setContent { MaterialTheme { Column(Modifier.width(360.dp)) {
+            ModelMessage(answer.value, 1700000000000, null, { path, page -> opened += path to page }, {})
+        } } }
+        for (status in listOf("Answering", "Completed")) {
+            runOnIdle { answer.value = answer.value.copy(status = status) }
+            val reply = onNodeWithText("Docs and http://example.org/help. [S1].")
+            val layouts = mutableListOf<TextLayoutResult>()
+            reply.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            for (label in listOf("Docs", "http://example.org/help")) {
+                val layout = layouts.single()
+                val position = layout.getBoundingBox(layout.layoutInput.text.text.indexOf(label)).center
+                reply.performTouchInput { click(position) }
+            }
+        }
+        onNodeWithTag("chat.source.document").performClick()
+        runOnIdle { assertEquals(listOf(
+            "https://example.com/guide#setup" to 1, "http://example.org/help" to 1,
+            "https://example.com/guide#setup" to 1, "http://example.org/help" to 1,
+            pdf.path to 3), opened) }
+    }
+
     @Test fun sourcePreviewsAreAbsentWhileAnsweringAndOnlyCitedImagesAppearAfterCompletion() = runComposeUiTest {
         val document = Attachment("doc", "Report.pdf", "/unopened/report.pdf", "application/pdf")
         val photos = (1..2).map { Attachment("photo-$it", "Photo $it.jpg", "/unopened/$it.jpg", "image/jpeg") }

@@ -144,6 +144,55 @@ final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
             }
         }
     }
+    func renderAudio(turns: [AudioTurn], language: String, directory: String, outputDirectory: String, callback: PlaybackResult) {
+        stop()
+        let id = token()
+        playback = callback
+        activity(.preparingVoice)
+        queue.async { [weak self] in
+            guard let self else { return }
+            do {
+                try autoreleasepool {
+                    guard !turns.isEmpty, AVAILABLE_LANGS.contains(language), language != "na",
+                          turns.allSatisfy({ ["F1", "F2", "F3", "F4", "F5", "M1", "M2", "M3", "M4", "M5"].contains($0.voice) }) else {
+                        throw NSError(domain: "speech", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid audio language or voices."])
+                    }
+                    guard self.current(id) else { throw CancellationError() }
+                    let env = try ORTEnv(loggingLevel: .warning)
+                    let tts = try loadTextToSpeech(directory + "/onnx", false, env)
+                    tts.checkCancellation = { if !self.current(id) { throw CancellationError() } }
+                    for (index, turn) in turns.enumerated() {
+                        try tts.checkCancellation?()
+                        DispatchQueue.main.async { if self.current(id) { callback.stage(value: "Preparing audio \(index + 1)/\(turns.count)…") } }
+                        let style = try loadVoiceStyle([directory + "/voice_styles/" + turn.voice + ".json"], verbose: false)
+                        let (wav, duration) = try tts.call(turn.text, language, style, 8)
+                        try tts.checkCancellation?()
+                        guard duration.isFinite, duration > 0, wav.allSatisfy({ $0.isFinite }) else { throw CocoaError(.fileWriteUnknown) }
+                        let count = min(wav.count, Int(Float(tts.sampleRate) * duration))
+                        guard count > 0 else { throw CocoaError(.fileWriteUnknown) }
+                        try writeWavFile(outputDirectory + "/\(index).wav", Array(wav.prefix(count)), tts.sampleRate)
+                    }
+                }
+                // Release all ONNX sessions before the shared controller resumes.
+                DispatchQueue.main.async { if self.current(id) { self.stop(); callback.success() } }
+            } catch {
+                DispatchQueue.main.async { if self.current(id) { self.failPlayback("Supertonic could not prepare audio. " + error.localizedDescription) } }
+            }
+        }
+    }
+    func playFile(path: String, callback: PlaybackResult) {
+        stop(); playback = callback
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .spokenAudio)
+            try session.setActive(true)
+            let player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path))
+            player.delegate = self; self.player = player
+            guard player.play() else { throw CocoaError(.fileReadUnknown) }
+            activity(.playback, duration: player.duration)
+            callback.stage(value: "Playing saved audio…")
+        } catch { failPlayback("Could not play saved audio. " + error.localizedDescription) }
+    }
     private func failPlayback(_ message: String) { let callback = playback; stop(); callback?.failure(message: message) }
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         guard self.player === player else { return }
@@ -159,6 +208,10 @@ final class IOSSpeech: NSObject, PlatformSpeech, AVAudioPlayerDelegate {
         player?.stop(); player = nil; playback = nil
         if let url = audioURL { try? FileManager.default.removeItem(at: url) }; audioURL = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+    func release(callback: Completion) {
+        stop()
+        queue.async { DispatchQueue.main.async { callback.success() } }
     }
     deinit { if let interruption { NotificationCenter.default.removeObserver(interruption) } }
 }

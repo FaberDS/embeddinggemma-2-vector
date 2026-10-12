@@ -32,7 +32,7 @@ class MatchedSourceTests {
             override fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult) {
                 assertTrue(query); assertNull(imagePath); queries++; callback.success(matchVector(0))
             }
-            override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+            override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
                 assertTrue(images.isEmpty()); opened += images
                 assertContains(prompt, "A yellow flower in a garden.")
                 assertFalse(prompt.contains("Other.jpg")); assertFalse(prompt.contains("Report.pdf"))
@@ -76,7 +76,7 @@ class MatchedSourceTests {
         val runtime = object : LocalRuntime {
             override fun load(search: Boolean, path: String, callback: Completion) = callback.success()
             override fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult) { assertNull(imagePath); assertTrue(query); callback.success(matchVector(0)) }
-            override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+            override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
                 assertTrue(images.isEmpty()); assertContains(prompt, "The recorded amount is 42.")
                 answered = true; callback.token("42 [S1]."); callback.success()
             }

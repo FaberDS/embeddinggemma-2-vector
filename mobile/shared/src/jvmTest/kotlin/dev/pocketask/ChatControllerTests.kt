@@ -22,10 +22,12 @@ internal class ChatInputs : PlatformInputs {
 
 internal class ChatRuntime : LocalRuntime {
     val prompts = mutableListOf<String>()
+    val outputLimits = mutableListOf<Int>()
     override fun load(search: Boolean, path: String, callback: Completion) = callback.success()
     override fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult) = callback.success(List(256) { if (it == 0) 1f else 0f })
-    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
         prompts += prompt
+        outputLimits += maxOutputTokens
         callback.token("A concise reply."); callback.success()
     }
     override fun release(callback: Completion) = callback.success()
@@ -55,6 +57,7 @@ class ChatControllerTests {
             controller.models.state(modelSpecs[1], ModelState(installed = true))
             controller.question("First question"); controller.ask(); advanceUntilIdle()
             val first = controller.state.value.result!!
+            assertEquals(listOf(512), runtime.outputLimits)
             assertEquals("", controller.state.value.draft.question)
             assertEquals(first.id, db.draft().conversationId)
             assertEquals("answer", first.modelId)

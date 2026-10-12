@@ -11,7 +11,7 @@ import okio.use
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class AppController(private val root: String, private val store: Store, private val runtime: LocalRuntime, private val inputs: PlatformInputs, transfers: ModelTransfers? = null, private val worker: CoroutineDispatcher = Dispatchers.Default, platformSpeech: PlatformSpeech? = null, private val indexingTasks: IndexingTasks? = null, initiallyActive: Boolean = true, private val webFetcher: suspend (String) -> WebPage = { fetchWebPage(it) }) {
+class AppController(private val root: String, private val store: Store, private val runtime: LocalRuntime, private val inputs: PlatformInputs, transfers: ModelTransfers? = null, private val worker: CoroutineDispatcher = Dispatchers.Default, private val platformSpeech: PlatformSpeech? = null, private val indexingTasks: IndexingTasks? = null, initiallyActive: Boolean = true, private val webFetcher: suspend (String) -> WebPage = { fetchWebPage(it) }) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val mutable = MutableStateFlow(UiState(draft = store.draft().copy(attachments = emptyList()), history = store.history(), library = store.library(root), answerModel = modelSpecs.firstOrNull { it.id != "search" && it.id == store.value("answer-model") }?.id ?: "answer", onboarding = if (store.value("onboarded") == "yes") 2 else 0, memory = store.memoryDraft(), telemetryEnabled = store.value("request-telemetry") == "yes", projects = store.projects()))
     val state = mutable.asStateFlow()
@@ -23,6 +23,7 @@ class AppController(private val root: String, private val store: Store, private 
     private var shareJob: Job? = null
     private var indexJob: Job? = null
     private var memoryJob: Job? = null
+    private var audioJob: Job? = null
     private var knowledgeJob: Job? = null
     private var preloadJob: Job? = null
     private var runtimeCleanup: Job? = null
@@ -37,7 +38,7 @@ class AppController(private val root: String, private val store: Store, private 
         { state.value.draft.question }, ::question, { active && state.value.stage == null && !state.value.picking && !state.value.importing })
 
     init {
-        update { it.copy(importReport = store.savedImportReport(), web = store.value("web-draft")?.takeIf { url -> url.isNotBlank() }?.let(::WebImport)) }
+        update { it.copy(importReport = store.savedImportReport(), web = store.value("web-draft")?.takeIf { url -> url.isNotBlank() }?.let(::WebImport), audio = store.audio()) }
         saveDraft()
         scope.launch { models.observeTransfers() }
         scope.launch {
@@ -106,9 +107,10 @@ class AppController(private val root: String, private val store: Store, private 
         val asking = requestJob
         val indexing = indexJob
         val memory = memoryJob
+        val audio = audioJob
         runtimeCleanup = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             withContext(NonCancellable) {
-                previous?.join(); warming?.join(); asking?.join(); indexing?.join(); memory?.join()
+                previous?.join(); warming?.join(); asking?.join(); indexing?.join(); memory?.join(); audio?.join()
                 runCatching { releaseModels() }
             }
         }
@@ -130,7 +132,7 @@ class AppController(private val root: String, private val store: Store, private 
         if (!canEditProjects || id == state.value.draft.projectId) return
         require(state.value.projects.any { it.id == id }) { "Project not found." }
         speech.stop()
-        update { it.copy(draft = Draft(projectId = id), result = null, screen = if (it.screen == "detail") "ask" else it.screen, error = null) }
+        update { it.copy(draft = Draft(projectId = id), result = null, screen = if (it.screen == "detail") "ask" else it.screen, error = null, audioProjectId = null, audioError = null) }
         saveDraft()
         preloadModels()
     }
@@ -138,6 +140,125 @@ class AppController(private val root: String, private val store: Store, private 
         if (!canEditProjects) return
         val source = store.setMembership(sourceId, projectId, included)
         update { it.copy(library = it.library.map { item -> if (item.id == sourceId) source else item }) }
+    }
+    fun openAudio(projectId: String) {
+        if (!canEditProjects) return
+        require(state.value.projects.any { it.id == projectId }) { "Project not found." }
+        update { it.copy(audioProjectId = projectId, audioSettings = store.audioSettings(projectId), audioError = null) }
+    }
+    fun closeAudio() { if (state.value.audioGenerating) cancelAudio(); update { it.copy(audioProjectId = null) } }
+    fun audioSettings(settings: AudioSettings) {
+        val project = state.value.audioProjectId ?: return
+        if (state.value.audioGenerating) return
+        try { store.saveAudioSettings(project, settings); update { it.copy(audioSettings = settings, audioError = null) } }
+        catch (e: Exception) { update { it.copy(audioError = e.message ?: "Could not save audio settings. Retry.") } }
+    }
+    fun cancelAudio() { if (audioJob?.isActive == true) { runtime.cancel(); audioJob?.cancel(); speech.stop() } }
+    private fun audioPath(audio: ProjectAudio): String {
+        require(audio.id.matches(Regex("[0-9]+-[0-9]+"))) { "Invalid saved audio file." }
+        return "$root/audio/${audio.id}.wav"
+    }
+    fun playAudio(id: String) {
+        val audio = state.value.audio.firstOrNull { it.id == id && it.projectId == state.value.audioProjectId } ?: return
+        if (state.value.stage != null) return
+        speech.readFile(audioPath(audio), "audio:$id")
+    }
+    fun shareAudio(id: String) {
+        val audio = state.value.audio.firstOrNull { it.id == id && it.projectId == state.value.audioProjectId } ?: return
+        if (state.value.stage != null) return
+        inputs.shareAudio(audioPath(audio), object : Completion {
+            override fun success() {}
+            override fun failure(message: String) { scope.launch { if (state.value.audioProjectId == audio.projectId) update { it.copy(audioError = message) } } }
+        })
+    }
+    fun generateAudio() {
+        val current = state.value
+        val project = current.projects.firstOrNull { it.id == current.audioProjectId } ?: return
+        if (!active || current.stage != null || current.picking || current.importing || audioJob?.isActive == true || current.memory?.status in listOf("Recording", "Saving")) return
+        val settings = current.audioSettings
+        val prompt = current.draft.question.trim()
+        val spec = selectedModels()[1]
+        val items = current.library.filter { project.id in it.projectIds }
+        try {
+            settings.validate(); GenerationLimits.audioOutputTokens(settings.minutes)
+            require(items.isNotEmpty()) { "This project has no context. Assign and index items in Assets first." }
+            require(prompt.isNotBlank()) { "Write a prompt describing the audio you want." }
+            require(models.states.value.getValue(spec.id).installed && speech.installed && speech.available) { "Download the answer model and Supertonic voices in Settings first." }
+        } catch (e: Exception) { update { it.copy(audioError = e.message) }; return }
+        speech.stop()
+        update { it.copy(stage = "Preparing project audio…", audioGenerating = true, audioError = null) }
+        val id = "${inputs.now()}-${(0..999999).random()}"
+        val directory = "$root/audio/staging/$id".toPath()
+        val destination = "$root/audio/$id.wav".toPath()
+        audioJob = scope.launch {
+            var saved = false
+            try {
+                runtimeCleanup?.join(); preloadJob?.join()
+                awaitCompletion { callback -> platformSpeech?.release(callback) ?: callback.success() }
+                val evidence = withContext(worker) {
+                    FileSystem.SYSTEM.deleteRecursively("$root/audio/staging".toPath(), mustExist = false)
+                    audioEvidence(store, items)
+                }
+                require(evidence.sources.isNotEmpty()) { "No indexed material is available in this project. Add or index its items, then try again." }
+                loadModel(spec)
+                val script = writeAudioScript(settings, evidence, prompt)
+                releaseModels()
+                withContext(worker) { FileSystem.SYSTEM.createDirectories(directory) }
+                stage("Preparing voices…")
+                suspendCancellableCoroutine<Unit> { continuation ->
+                    platformSpeech!!.renderAudio(script.turns, settings.language, "$root/models/supertonic", directory.toString(), object : PlaybackResult {
+                        override fun stage(value: String) { scope.launch { if (continuation.isActive) this@AppController.stage(value) } }
+                        override fun success() { if (continuation.isActive) continuation.resume(Unit) }
+                        override fun failure(message: String) { if (continuation.isActive) continuation.resumeWithException(IllegalStateException(message)) }
+                    })
+                }
+                stage("Saving audio…")
+                val duration = withContext(worker) {
+                    val seconds = joinAudio(script.turns.indices.map { "$directory/$it.wav" }, "$directory/complete.wav")
+                    currentCoroutineContext().ensureActive()
+                    FileSystem.SYSTEM.atomicMove("$directory/complete.wav".toPath(), destination)
+                    seconds
+                }
+                store.saveAudio(ProjectAudio(id, project.id, "${project.name} · ${settings.style}", inputs.now(), settings,
+                    evidence.sources.map { it.copy(vector = emptyList()) }, script.turns, duration, prompt))
+                saved = true
+                update { it.copy(audio = store.audio()) }
+            } catch (e: CancellationException) {
+                update { it.copy(audioError = "Audio generation stopped. Generate again to retry.") }
+            } catch (e: Exception) {
+                update { it.copy(audioError = e.message ?: "Audio generation failed. Generate again to retry.") }
+            } finally {
+                speech.stop()
+                withContext(NonCancellable) {
+                    runCatching { awaitCompletion { callback -> platformSpeech?.release(callback) ?: callback.success() } }
+                    runCatching { releaseModels() }
+                    withContext(worker) {
+                        runCatching { FileSystem.SYSTEM.deleteRecursively(directory) }
+                        if (!saved) runCatching { FileSystem.SYSTEM.delete(destination, mustExist = false) }
+                    }
+                }
+                update { it.copy(stage = null, audioGenerating = false) }
+                scope.launch { audioJob?.join(); indexAttachments(); preloadModels() }
+            }
+        }
+    }
+    private suspend fun writeAudioScript(settings: AudioSettings, evidence: EvidencePackage, prompt: String): AudioSection {
+        for (attempt in 0..1) {
+            stage(if (attempt == 0) "Writing ${settings.style.lowercase()} script…" else "Retrying with a shorter complete script…")
+            val tokens = Channel<String>(Channel.UNLIMITED)
+            val generated = try {
+                runtime.answerStructured(audioInstructions(settings, compact = attempt > 0), "Audio request: $prompt\n\n${evidence.prompt}",
+                    audioSchema(settings, evidence.sources.size), GenerationLimits.audioOutputTokens(settings.minutes), object : StreamResult {
+                        override fun token(text: String) { tokens.trySend(text) }
+                        override fun success() { tokens.close() }
+                        override fun failure(message: String) { tokens.close(IllegalStateException(message)) }
+                    })
+                buildString { for (token in tokens) { append(token); require(length <= 300000) { "The script was too large. Choose a shorter length." } } }
+            } finally { tokens.close() }
+            try { return audioSection(generated, settings, evidence.sources.size) }
+            catch (e: AudioScriptFormatException) { if (attempt == 1) throw e }
+        }
+        error("No audio script was generated.")
     }
     fun screen(name: String) {
         pauseMemoryRecording()
@@ -780,12 +901,12 @@ class AppController(private val root: String, private val store: Store, private 
     }
 
     private fun stage(text: String) = update { it.copy(stage = text) }
-    fun stop() { runtime.cancel(); loadedModel = null; preloadJob?.cancel(); requestJob?.cancel(); indexJob?.cancel(); memoryJob?.cancel() }
+    fun stop() { cancelAudio(); runtime.cancel(); loadedModel = null; preloadJob?.cancel(); requestJob?.cancel(); indexJob?.cancel(); memoryJob?.cancel() }
     fun background() {
         active = false; knowledgeJob?.cancel(); update { it.copy(knowledgeLoading = false) }
         pauseMemoryRecording(); speech.background()
         if (preloadJob?.isActive == true) { runtime.cancel(); loadedModel = null; preloadJob?.cancel() }
-        if (requestJob?.isActive == true || memoryJob?.isActive == true || (indexJob?.isActive == true && !backgroundIndexing)) stop()
+        if (requestJob?.isActive == true || memoryJob?.isActive == true || audioJob?.isActive == true || (indexJob?.isActive == true && !backgroundIndexing)) stop()
         if (indexJob?.isActive != true || !backgroundIndexing) releaseIdleModels()
     }
     fun resumeIndexingInBackground(): Boolean {

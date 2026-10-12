@@ -32,7 +32,7 @@ private class WarmRuntime : LocalRuntime {
         assertEquals(true, engine)
         callback.success(List(256) { if (it == 0) 1f else 0f })
     }
-    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
         assertEquals(false, engine)
         answers++; callback.token("A reply [S1]."); callback.success()
     }

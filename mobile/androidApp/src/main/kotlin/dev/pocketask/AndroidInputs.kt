@@ -2,6 +2,7 @@ package dev.pocketask
 
 import android.app.Application
 import android.content.Intent
+import android.content.ClipData
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ImageDecoder
@@ -165,6 +166,19 @@ class AndroidInputs(private val application: Application) : PlatformInputs, Docu
         val type = when (File(path).extension) { "pdf" -> "application/pdf"; "jpg" -> "image/jpeg"; else -> "text/plain" }
         val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).putExtra("page", page)
         activity?.let { owner -> runCatching { owner.startActivity(intent) }.onFailure { android.widget.Toast.makeText(owner, "Install a viewer to open this source.", android.widget.Toast.LENGTH_SHORT).show() } }
+    }
+    override fun shareAudio(path: String, callback: Completion) {
+        try {
+            val owner = checkNotNull(activity) { "Sharing is unavailable. Reopen the app." }
+            val file = File(path).canonicalFile
+            require(file.parentFile == File(application.filesDir, "audio").canonicalFile && file.extension == "wav" && file.isFile && file.canRead() && file.length() > 44) { "The saved audio file is unavailable. Generate it again." }
+            val uri = FileProvider.getUriForFile(application, "${application.packageName}.files", file)
+            val send = Intent(Intent.ACTION_SEND).setType("audio/wav").putExtra(Intent.EXTRA_STREAM, uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            send.clipData = ClipData.newRawUri("Audio", uri)
+            owner.startActivity(Intent.createChooser(send, "Share audio"))
+            callback.success()
+        } catch (e: Exception) { callback.failure("Could not share audio. ${e.message.orEmpty()}") }
     }
     override fun freeBytes() = StatFs(application.filesDir.absolutePath).availableBytes
     override fun canDownload(cellular: Boolean): Boolean {

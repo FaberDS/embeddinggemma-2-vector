@@ -36,6 +36,9 @@ INSERT OR REPLACE INTO evidence(attachment_id, id, json, vector_kind, dimensions
 evidencePage:
 SELECT json FROM evidence WHERE attachment_id = ? ORDER BY id LIMIT 64 OFFSET ?;
 
+evidenceCount:
+SELECT count(*) FROM evidence WHERE attachment_id = ?;
+
 getEvidence:
 SELECT json FROM evidence WHERE id = ?;
 

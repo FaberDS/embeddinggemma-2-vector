@@ -28,7 +28,7 @@ class ProjectContextTests {
                 queries++
                 callback.success(List(256) { if (it == 0) 1f else 0f })
             }
-            override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+            override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
                 answerInstructions += instructions
                 prompts += prompt
                 callback.token("Saved reply [S1].")

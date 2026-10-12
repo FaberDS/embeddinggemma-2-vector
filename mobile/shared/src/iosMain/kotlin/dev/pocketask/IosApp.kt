@@ -29,5 +29,5 @@ class IosApp(root: String, runtime: LocalRuntime, inputs: PlatformInputs, transf
     fun receiveShare(id: String, url: String?, files: List<SharedFile>, error: String?, result: ShareImportResult) =
         controller.receiveShare(id, url, files, error) { result.completed(it) }
     fun background() = controller.background()
-    fun stopSpeech() { if (controller.speech.state.value.listening) controller.speech.finishListening() else controller.speech.stop() }
+    fun stopSpeech() { if (controller.state.value.audioGenerating) controller.cancelAudio() else if (controller.speech.state.value.listening) controller.speech.finishListening() else controller.speech.stop() }
 }

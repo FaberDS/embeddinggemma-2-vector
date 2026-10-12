@@ -8,6 +8,10 @@ private actor ModelWorker {
     var engine: Engine?
     var conversation: Conversation?
     private var cancelled = false
+    private var answerPath: String?
+    private var answerCPU = false
+    private var contextTokens = 4096
+    private var outputTokens = 512
     private let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].path
 
     func load(search: Bool, path: String, cpu: Bool) async throws {
@@ -17,16 +21,31 @@ private actor ModelWorker {
             embedding = model
             try await model.initialize()
         } else {
-            #if targetEnvironment(simulator)
-            let backend = Backend.cpu(threadCount: 4)
-            #else
-            let backend = cpu ? Backend.cpu(threadCount: 4) : Backend.gpu
-            #endif
-            let model = Engine(engineConfig: try EngineConfig(modelPath: path, backend: backend, visionBackend: .cpu(threadCount: 4), maxNumTokens: cpu ? 4096 : 8192, cacheDir: cache))
-            engine = model
-            try await model.initialize()
+            try await loadAnswer(path: path, cpu: cpu, tokens: cpu ? 4096 : 8192)
         }
         if cancelled { throw CancellationError() }
+    }
+
+    private func loadAnswer(path: String, cpu: Bool, tokens: Int) async throws {
+        engine = nil
+        #if targetEnvironment(simulator)
+        let backend = Backend.cpu(threadCount: 4)
+        #else
+        let backend = cpu ? Backend.cpu(threadCount: 4) : Backend.gpu
+        #endif
+        let model = Engine(engineConfig: try EngineConfig(modelPath: path, backend: backend, visionBackend: .cpu(threadCount: 4), maxNumTokens: tokens, cacheDir: cache))
+        engine = model
+        try await model.initialize()
+        answerPath = path; answerCPU = cpu; contextTokens = tokens
+    }
+
+    func inferenceDetails() -> String {
+        #if targetEnvironment(simulator)
+        let backend = "CPU · 4 threads"
+        #else
+        let backend = answerCPU ? "CPU · 4 threads" : "GPU"
+        #endif
+        return "\(backend) · \(contextTokens)-token context · \(outputTokens)-token output limit"
     }
 
     func embed(text: String, image: String?, query: Bool) async throws -> [Float] {
@@ -35,14 +54,22 @@ private actor ModelWorker {
         return try await embedding.computeEmbedding(contents: [content], options: EmbeddingOptions(normalize: true, outputSize: 256)).embedding
     }
 
-    func answer(instructions: String, prompt: String, images: [String], callback: StreamResult) async throws {
+    func answer(instructions: String, prompt: String, images: [String], callback: StreamResult, maxOutputTokens: Int32, configured: (String) -> Void, schema: String? = nil) async throws {
+        guard engine != nil, !cancelled else { throw CancellationError() }
+        let requiredContext = Int(try GenerationLimits.shared.contextTokens(outputTokens: maxOutputTokens, minimum: answerCPU ? 4096 : 8192))
+        if requiredContext != contextTokens, let answerPath {
+            try await loadAnswer(path: answerPath, cpu: answerCPU, tokens: requiredContext)
+        }
         guard let engine, !cancelled else { throw CancellationError() }
-        let config = ConversationConfig(systemMessage: Message(instructions), samplerConfig: try SamplerConfig(topK: 40, topP: 0.9, temperature: 0.2), thinkingConfig: ThinkingConfig(enableThinking: false))
+        outputTokens = Int(maxOutputTokens)
+        configured(inferenceDetails())
+        let format = try schema.map { try ResponseFormat.json(schema: $0) }
+        let config = ConversationConfig(systemMessage: Message(instructions), samplerConfig: try SamplerConfig(topK: 40, topP: 0.9, temperature: 0.2), thinkingConfig: ThinkingConfig(enableThinking: false), enableResponseFormat: format != nil)
         let current = try await engine.createConversation(with: config)
         conversation = current
         defer { conversation = nil }
         let contents: [LiteRTLM.Content] = [.text(prompt)] + (try images.map { try imageContent($0) })
-        let stream = await current.sendMessageStream(Message(contents: contents), maxOutputTokens: 512)
+        let stream = await current.sendMessageStream(Message(contents: contents), maxOutputTokens: Int(maxOutputTokens), responseFormat: format)
         for try await chunk in stream {
             if cancelled { throw CancellationError() }
             callback.token(text: chunk.toString)
@@ -68,6 +95,7 @@ private actor ModelWorker {
         await embedding?.close(); embedding = nil
         conversation = nil
         engine = nil
+        answerPath = nil; contextTokens = 4096; outputTokens = 512
     }
 }
 
@@ -92,12 +120,7 @@ final class SwiftRuntime: LocalRuntime, @unchecked Sendable {
             do {
                 let cpu = self.cpuPreference()
                 try await self.worker.load(search: search, path: path, cpu: cpu)
-                #if targetEnvironment(simulator)
-                let backend = "CPU · 4 threads"
-                #else
-                let backend = cpu ? "CPU · 4 threads" : "GPU"
-                #endif
-                self.setDetails(search ? "CPU · 4 threads · 256-value embeddings" : "\(backend) · \(cpu ? 4096 : 8192)-token context · 512-token output limit")
+                self.setDetails(search ? "CPU · 4 threads · 256-value embeddings" : await self.worker.inferenceDetails())
                 callback.success()
             } catch { callback.failure(message: error.localizedDescription) }
         }
@@ -105,8 +128,11 @@ final class SwiftRuntime: LocalRuntime, @unchecked Sendable {
     func embed(text: String, imagePath: String?, query: Bool, callback: VectorResult) {
         enqueue { do { let values = try await self.worker.embed(text: text, image: imagePath, query: query); callback.success(values: values.map { KotlinFloat(float: $0) }) } catch { callback.failure(message: error.localizedDescription) } }
     }
-    func answer(instructions: String, prompt: String, images: [String], callback: StreamResult) {
-        enqueue { do { try await self.worker.answer(instructions: instructions, prompt: prompt, images: images, callback: callback); callback.success() } catch { callback.failure(message: error.localizedDescription) } }
+    func answer(instructions: String, prompt: String, images: [String], callback: StreamResult, maxOutputTokens: Int32) {
+        enqueue { do { try await self.worker.answer(instructions: instructions, prompt: prompt, images: images, callback: callback, maxOutputTokens: maxOutputTokens, configured: self.setDetails); callback.success() } catch { callback.failure(message: error.localizedDescription) } }
+    }
+    func answerStructured(instructions: String, prompt: String, schema: String, maxOutputTokens: Int32, callback: StreamResult) {
+        enqueue { do { try await self.worker.answer(instructions: instructions, prompt: prompt, images: [], callback: callback, maxOutputTokens: maxOutputTokens, configured: self.setDetails, schema: schema); callback.success() } catch { callback.failure(message: error.localizedDescription) } }
     }
     func release(callback: Completion) { enqueue { await self.worker.release(); self.setDetails("No model loaded"); callback.success() } }
     func cancel() { Task { await worker.cancel() } }

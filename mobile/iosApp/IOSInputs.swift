@@ -142,6 +142,28 @@ final class IOSInputs: NSObject, PlatformInputs, DocumentInputs, UIDocumentPicke
             self.presenter?.present(UINavigationController(rootViewController: controller), animated: true)
         }
     }
+    func shareAudio(path: String, callback: Completion) {
+        DispatchQueue.main.async {
+            let url = URL(fileURLWithPath: path).standardizedFileURL
+            guard url.deletingLastPathComponent() == self.root.appendingPathComponent("audio").standardizedFileURL,
+                  url.pathExtension == "wav", FileManager.default.isReadableFile(atPath: url.path),
+                  let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 44 else {
+                callback.failure(message: "The saved audio file is unavailable. Generate it again."); return
+            }
+            guard var owner = self.presenter else { callback.failure(message: "Sharing is unavailable. Reopen the app and try again."); return }
+            while let presented = owner.presentedViewController { owner = presented }
+            guard owner.viewIfLoaded?.window != nil, !owner.isBeingDismissed else { callback.failure(message: "Sharing is unavailable. Close this sheet and try again."); return }
+            let share = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            share.completionWithItemsHandler = { _, _, _, error in
+                if let error { callback.failure(message: "Could not share audio. " + error.localizedDescription) }
+                else { callback.success() }
+            }
+            share.popoverPresentationController?.sourceView = owner.view
+            share.popoverPresentationController?.sourceRect = CGRect(x: owner.view.bounds.midX, y: owner.view.bounds.midY, width: 0, height: 0)
+            share.popoverPresentationController?.permittedArrowDirections = []
+            owner.present(share, animated: true)
+        }
+    }
     func freeBytes() -> Int64 {
         let values = try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return values?.volumeAvailableCapacityForImportantUsage ?? 0

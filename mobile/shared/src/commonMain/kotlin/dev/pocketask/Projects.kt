@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -38,17 +39,24 @@ internal fun ProjectSelector(controller: AppController, state: UiState, modifier
     var name by rememberSaveable { mutableStateOf("") }
     val colors = MaterialTheme.colorScheme
     val selected = state.projects.firstOrNull { it.id == state.draft.projectId }
+    var actions by remember(selected?.id) { mutableStateOf(false) }
     Surface(onClick = { expanded = true }, enabled = controller.canEditProjects,
         shape = RoundedCornerShape(18.dp), color = colors.surfaceContainerLow,
         modifier = modifier.testTag("project.select").semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }) {
-        Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+        Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
                 Text("Project", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
                 Text(selected?.name ?: "Select project", style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(ProjectChevron, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
+            if (selected != null) Box {
+                IconButton(onClick = { actions = true }, enabled = controller.canEditProjects, modifier = Modifier.testTag("project.actions")) { Text("⋯", modifier = Modifier.semantics { contentDescription = "Project actions" }) }
+                DropdownMenu(actions, { actions = false }) {
+                    DropdownMenuItem(text = { Text("Create audio") }, onClick = { actions = false; controller.openAudio(selected.id) }, modifier = Modifier.testTag("project.audio"))
+                }
+            }
         }
     }
     if (expanded) ModalBottomSheet(onDismissRequest = { expanded = false },
@@ -97,6 +105,7 @@ internal fun ProjectSelector(controller: AppController, state: UiState, modifier
             colors = ButtonDefaults.buttonColors(contentColor = colors.surface),
             modifier = Modifier.testTag("project.create")) { Text("Create") }
     }, dismissButton = { TextButton(onClick = { creating = false }) { Text("Cancel") } })
+    if (state.audioProjectId != null) ProjectAudioSheet(controller, state)
 }
 
 private val ProjectChevron = ImageVector.Builder("ProjectChevron", 24.dp, 24.dp, 24f, 24f).apply {

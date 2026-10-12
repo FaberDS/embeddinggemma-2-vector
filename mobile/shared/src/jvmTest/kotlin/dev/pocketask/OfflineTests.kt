@@ -74,7 +74,7 @@ private class FakeRuntime : LocalRuntime {
     var cancels = 0
     override fun load(search: Boolean, path: String, callback: Completion) { loads += search; paths += path; callback.success() }
     override fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult) = callback.success(vector(0))
-    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
         stream = callback; callback.token("A compact answer.")
         if (finishImmediately) callback.success()
     }

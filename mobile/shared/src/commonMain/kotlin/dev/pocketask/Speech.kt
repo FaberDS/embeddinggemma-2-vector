@@ -18,7 +18,11 @@ interface PlatformSpeech {
     fun listen(callback: DictationResult)
     fun finishListening()
     fun speak(text: String, voice: String, directory: String, callback: PlaybackResult)
+    fun renderAudio(turns: List<AudioTurn>, language: String, directory: String, outputDirectory: String, callback: PlaybackResult) { callback.failure("Audio generation is unavailable on this platform.") }
+    fun playFile(path: String, callback: PlaybackResult) { callback.failure("Saved audio playback is unavailable on this platform.") }
     fun stop()
+    /** Stop and acknowledge that background synthesis has released its models. */
+    fun release(callback: Completion) { stop(); callback.success() }
 }
 
 data class SpeechVoice(val id: String, val title: String)
@@ -128,6 +132,18 @@ class SpeechController(private val root: String, private val store: Store, input
         val token = generation
         mutable.update { it.copy(answerId = id, stage = "Loading Supertonic…", error = null) }
         platform!!.speak(spokenText(text), state.value.voice, "$root/models/supertonic", object : PlaybackResult {
+            override fun stage(value: String) { scope.launch { if (token == generation) mutable.update { it.copy(stage = value) } } }
+            override fun success() { scope.launch { if (token == generation) { generation++; mutable.update { it.copy(stage = null, answerId = null) } } } }
+            override fun failure(message: String) { scope.launch { if (token == generation) { generation++; mutable.update { it.copy(stage = null, answerId = null, error = message) } } } }
+        })
+    }
+    fun readFile(path: String, id: String) {
+        if (!active || !canStart() || platform == null) return
+        if (state.value.answerId == id) { stop(); return }
+        stop()
+        val token = generation
+        mutable.update { it.copy(answerId = id, stage = "Opening audio…", error = null) }
+        platform.playFile(path, object : PlaybackResult {
             override fun stage(value: String) { scope.launch { if (token == generation) mutable.update { it.copy(stage = value) } } }
             override fun success() { scope.launch { if (token == generation) { generation++; mutable.update { it.copy(stage = null, answerId = null) } } } }
             override fun failure(message: String) { scope.launch { if (token == generation) { generation++; mutable.update { it.copy(stage = null, answerId = null, error = message) } } } }

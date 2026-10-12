@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AC2700000000000000000001 /* AudioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2700000000000000000002 /* AudioTests.swift */; };
 		0367010FF4A2B0F70862B273 /* StopVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DE13D66E818B197EAFE4DF /* StopVoiceIntent.swift */; };
 		0E49DD06FB1FF7093B73FB3C /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B124F49544BC1DCF17F99CE /* ShareViewController.swift */; };
 		17C04E3E5E16AFBEC646ADAE /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = 6018E07545EE523537FF920A /* LiteRTLM */; };
@@ -81,6 +82,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AC2700000000000000000002 /* AudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTests.swift; sourceTree = "<group>"; };
 		04175BBF2243A1B79B77EAA3 /* ShareInbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareInbox.swift; sourceTree = "<group>"; };
 		09291EA5BCA95EEBB4059AC0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		0AE3DAAFC5DE2D49F7CE7CC4 /* IOSVoiceActivities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSVoiceActivities.swift; sourceTree = "<group>"; };
@@ -227,6 +229,7 @@
 		D77C0105E5028FE365EBE28F /* NativeTests */ = {
 			isa = PBXGroup;
 			children = (
+				AC2700000000000000000002 /* AudioTests.swift */,
 				24D0D9ADA3D9AB8A15145EA7 /* VoiceActivityTests.swift */,
 				266B22DF9771F627B023141A /* ShareInboxTests.swift */,
 			);
@@ -427,6 +430,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC2700000000000000000001 /* AudioTests.swift in Sources */,
 				5858334ABAFB585B66902E43 /* VoiceActivityTests.swift in Sources */,
 				8EE3C290DB7275A70911340A /* ShareInboxTests.swift in Sources */,
 			);

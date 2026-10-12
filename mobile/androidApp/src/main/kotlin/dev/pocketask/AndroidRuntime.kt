@@ -20,6 +20,8 @@ class AndroidRuntime(context: Context) : LocalRuntime {
     private val lock = Mutex()
     private var embedding: EmbeddingEngine? = null
     private var generation: Engine? = null
+    private var answerPath: String? = null
+    private var contextTokens = profile.contextTokens
     @Volatile private var conversation: Conversation? = null
     @Volatile private var details = "No model loaded"
     private val cancelled = AtomicBoolean(false)
@@ -37,11 +39,10 @@ class AndroidRuntime(context: Context) : LocalRuntime {
             embedding = EmbeddingEngine(EmbeddingEngineConfig(modelPath = path, backend = Backend.CPU(4), visionBackend = Backend.CPU(4), cacheDir = cache))
             embedding!!.initialize()
         } else {
-            generation = Engine(EngineConfig(modelPath = path, backend = if (profile.cpu) Backend.CPU(4) else Backend.GPU(), visionBackend = Backend.CPU(4), maxNumTokens = profile.contextTokens, maxNumImages = 1, cacheDir = cache))
-            generation!!.initialize()
+            loadAnswer(path, profile.contextTokens)
         }
         check(!cancelled.get()) { "Loading stopped." }
-        details = if (search) "CPU · 4 threads · 256-value embeddings" else "${if (profile.cpu) "CPU · 4 threads" else "GPU"} · ${profile.contextTokens}-token context · 512-token output limit"
+        details = if (search) "CPU · 4 threads · 256-value embeddings" else answerDetails(GenerationLimits.defaultOutputTokens)
         Log.i("PocketAskRuntime", "Engine ready")
     }
     override fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult) {
@@ -57,17 +58,24 @@ class AndroidRuntime(context: Context) : LocalRuntime {
             } catch (e: Throwable) { callback.failure(e.message ?: "Embedding failed.") }
         }
     }
-    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) = generate(instructions, prompt, images, callback, maxOutputTokens, null)
+    override fun answerStructured(instructions: String, prompt: String, schema: String, maxOutputTokens: Int, callback: StreamResult) = generate(instructions, prompt, emptyList(), callback, maxOutputTokens, schema)
+    private fun generate(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int, schema: String?) {
         scope.launch {
             try {
                 lock.withLock {
                     check(!cancelled.get()) { "Answer stopped." }
-                    val current = checkNotNull(generation).createConversation(ConversationConfig(systemInstruction = Contents.of(instructions), samplerConfig = SamplerConfig(40, 0.9, 0.2), maxOutputToken = 512, thinkingConfig = ThinkingConfig(enableThinking = false)))
+                    val requiredContext = GenerationLimits.contextTokens(maxOutputTokens, profile.contextTokens)
+                    if (requiredContext != contextTokens) loadAnswer(checkNotNull(answerPath), requiredContext)
+                    check(!cancelled.get()) { "Answer stopped." }
+                    details = answerDetails(maxOutputTokens)
+                    val format = schema?.let(ResponseFormat::json)
+                    val current = checkNotNull(generation).createConversation(ConversationConfig(systemInstruction = Contents.of(instructions), samplerConfig = SamplerConfig(40, 0.9, 0.2), maxOutputToken = maxOutputTokens, thinkingConfig = ThinkingConfig(enableThinking = false), enableResponseFormat = format != null))
                     conversation = current
                     try {
                         val contents = mutableListOf<Content>(Content.Text(prompt))
                         images.forEach { contents += Content.ImageFile(it) }
-                        current.sendMessageAsync(Contents.of(contents)).collect { message ->
+                        current.sendMessageAsync(Contents.of(contents), responseFormat = format).collect { message ->
                             if (!cancelled.get()) callback.token(message.toString())
                         }
                         callback.success()
@@ -80,9 +88,18 @@ class AndroidRuntime(context: Context) : LocalRuntime {
     override fun cancel() { cancelled.set(true); runCatching { conversation?.cancelProcess() } }
     override fun inferenceDetails() = details
     override fun release(callback: Completion) = operation(callback) { closeEngines() }
+    private fun answerDetails(outputTokens: Int) = "${if (profile.cpu) "CPU · 4 threads" else "GPU"} · $contextTokens-token context · $outputTokens-token output limit"
+    private suspend fun loadAnswer(path: String, tokens: Int) {
+        generation?.let { if (it.isInitialized()) it.close() }; generation = null
+        val model = Engine(EngineConfig(modelPath = path, backend = if (profile.cpu) Backend.CPU(4) else Backend.GPU(), visionBackend = Backend.CPU(4), maxNumTokens = tokens, maxNumImages = 1, cacheDir = cache))
+        generation = model
+        model.initialize()
+        answerPath = path; contextTokens = tokens
+    }
     private fun closeEngines() {
         embedding?.let { if (it.isInitialized()) it.close() }; embedding = null
         generation?.let { if (it.isInitialized()) it.close() }; generation = null
+        answerPath = null; contextTokens = profile.contextTokens
         details = "No model loaded"
         Log.i("PocketAskRuntime", "Engines released")
     }

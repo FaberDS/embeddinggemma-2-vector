@@ -68,7 +68,7 @@ private class IngestionRuntime : LocalRuntime {
         if (!query && (holdNextDocument || embeddings.size == holdEmbeddingAt)) { holdNextDocument = false; held = callback }
         else callback.success(List(256) { if (it == 0) 1f else 0f })
     }
-    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) {
+    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) {
         assertEquals(false, engine)
         if (images.isNotEmpty()) {
             descriptionImages += images

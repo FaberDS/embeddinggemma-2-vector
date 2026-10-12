@@ -25,6 +25,16 @@ class Store(private val driver: SqlDriver, root: String? = null) {
     fun value(kind: String, id: String = "value") = queries.get(kind, id).executeAsOneOrNull()
     fun put(kind: String, id: String = "value", value: String) = queries.put(kind, id, value)
     fun projects() = queries.list("project").executeAsList().map { json.decodeFromString<Project>(it) }
+    fun audioSettings(projectId: String) = value("audio-settings", projectId)?.let { json.decodeFromString<AudioSettings>(it) } ?: AudioSettings()
+    fun saveAudioSettings(projectId: String, settings: AudioSettings) {
+        require(value("project", projectId) != null) { "Project not found." }; settings.validate()
+        put("audio-settings", projectId, json.encodeToString(settings))
+    }
+    fun audio() = queries.list("project-audio").executeAsList().map { json.decodeFromString<ProjectAudio>(it) }.map { it.copy(sources = it.sources.map(::loaded)) }
+    fun saveAudio(audio: ProjectAudio) {
+        require(value("project", audio.projectId) != null && audio.id.matches(Regex("[0-9]+-[0-9]+"))) { "Invalid audio ownership." }
+        put("project-audio", audio.id, json.encodeToString(audio.copy(sources = audio.sources.map(::stored))))
+    }
     fun saveProject(project: Project) {
         require(project.id.isNotBlank() && project.name.isNotBlank()) { "Enter a project name." }
         put("project", project.id, json.encodeToString(project))
@@ -99,6 +109,7 @@ class Store(private val driver: SqlDriver, root: String? = null) {
         if (evidence.image != null && evidence.text.isNotBlank()) put("searchable-image:${evidence.attachmentId}", evidence.id, "yes")
     }
     fun evidence(attachment: String, offset: Long) = queries.evidencePage(attachment, offset).executeAsList().map { loaded(json.decodeFromString<Evidence>(it)) }
+    fun evidenceCount(attachment: String) = queries.evidenceCount(attachment).executeAsOne()
     fun markPrepared(attachment: Attachment) {
         queries.transaction {
             if (attachment.needsImageDescriptions) {

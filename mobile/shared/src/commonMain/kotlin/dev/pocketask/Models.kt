@@ -52,7 +52,9 @@ data class UiState(val draft: Draft = Draft(), val history: List<Answer> = empty
     val answerModel: String = "answer", val onboarding: Int = 0, val screen: String = "ask", val stage: String? = null,
     val error: String? = null, val picking: Boolean = false, val importing: Boolean = false, val sourcesExpanded: Boolean = false, val memory: MemoryDraft? = null,
     val knowledge: KnowledgeStats? = null, val knowledgeLoading: Boolean = false, val knowledgeError: String? = null, val indexing: IndexingProgress? = null,
-    val importReport: ImportReport? = null, val telemetryEnabled: Boolean = false, val web: WebImport? = null, val projects: List<Project> = emptyList()) {
+    val importReport: ImportReport? = null, val telemetryEnabled: Boolean = false, val web: WebImport? = null, val projects: List<Project> = emptyList(),
+    val audio: List<ProjectAudio> = emptyList(), val audioProjectId: String? = null, val audioSettings: AudioSettings = AudioSettings(),
+    val audioGenerating: Boolean = false, val audioError: String? = null) {
     val projectLibrary get() = library.filter { draft.projectId != null && draft.projectId in it.projectIds }
     val projectHistory get() = history.filter { it.projectId == draft.projectId }
 }
@@ -68,7 +70,8 @@ interface PageResult { fun success(page: PageInput); fun failure(message: String
 interface LocalRuntime {
     fun load(search: Boolean, path: String, callback: Completion)
     fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult)
-    fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult)
+    fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int = GenerationLimits.defaultOutputTokens)
+    fun answerStructured(instructions: String, prompt: String, schema: String, maxOutputTokens: Int, callback: StreamResult) = answer(instructions, prompt, emptyList(), callback, maxOutputTokens)
     fun release(callback: Completion)
     fun cancel()
     fun inferenceDetails(): String = "Backend not reported"
@@ -82,6 +85,7 @@ interface PlatformInputs {
     fun freeBytes(): Long
     fun canDownload(cellular: Boolean): Boolean
     fun now(): Long
+    fun shareAudio(path: String, callback: Completion) { callback.failure("Audio sharing is unavailable on this platform.") }
 }
 
 /** OS-owned transfers survive UI suspension. Completed files still require verification. */

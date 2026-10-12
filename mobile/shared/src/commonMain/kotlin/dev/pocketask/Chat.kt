@@ -228,6 +228,8 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
                 Text(it, Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = controller.speech::dismissError) { Text("Dismiss") }
             } }
+            OutlinedTextField(state.draft.question, controller::question, modifier = Modifier.fillMaxWidth().testTag("chat.input"), placeholder = { Text("Message") }, minLines = 1, maxLines = 6, enabled = !answering && !speech.listening,
+                    shape = RoundedCornerShape(24.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }))
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box {
                     FilledIconButton(onClick = { actions = true }, enabled = !busy, colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF303833), contentColor = Color.White), modifier = Modifier.testTag("chat.addSource").semantics { contentDescription = "Add source" }) { Text("+", style = MaterialTheme.typography.titleLarge) }
@@ -239,8 +241,10 @@ private fun ChatComposer(controller: AppController, state: UiState, models: Map<
                         DropdownMenuItem(text = { Text("Add memory") }, enabled = controller.speech.available, onClick = { actions = false; keyboard?.hide(); controller.startMemory() }, modifier = Modifier.testTag("memory.add"))
                     }
                 }
-                OutlinedTextField(state.draft.question, controller::question, modifier = Modifier.weight(1f).testTag("chat.input"), placeholder = { Text("Message") }, minLines = 1, maxLines = 6, enabled = !answering && !speech.listening,
-                    shape = RoundedCornerShape(24.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }))
+                FilledTonalIconButton(onClick = { keyboard?.hide(); state.draft.projectId?.let(controller::openAudio) },
+                    enabled = !busy && !speech.listening && state.draft.projectId != null && state.draft.question.isNotBlank(),
+                    modifier = Modifier.testTag("chat.createAudio").semantics { contentDescription = "Create audio" }) { Text("♫", style = MaterialTheme.typography.titleLarge) }
+                Spacer(Modifier.weight(1f))
                 if (controller.speech.available) IconButton(onClick = { keyboard?.hide(); controller.speech.toggleListening() }, enabled = !busy,
                     modifier = Modifier.testTag("speech.microphone").semantics { contentDescription = if (speech.listening) "Finish dictation" else "Dictate message" }) { MicrophoneIcon(speech.listening) }
                 FilledIconButton(onClick = { send() }, enabled = canSend, modifier = Modifier.testTag("chat.send").semantics { contentDescription = "Send message" }) { Text("↑", style = MaterialTheme.typography.titleLarge) }

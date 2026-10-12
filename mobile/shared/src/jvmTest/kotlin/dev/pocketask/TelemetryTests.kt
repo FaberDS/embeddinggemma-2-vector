@@ -17,7 +17,7 @@ private class TimingRuntime : LocalRuntime {
         if (failLoad) callback.failure("Load failed") else callback.success()
     }
     override fun embed(text: String, imagePath: String?, query: Boolean, callback: VectorResult) = callback.success(List(256) { if (it == 0) 1f else 0f })
-    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult) { stream = callback }
+    override fun answer(instructions: String, prompt: String, images: List<String>, callback: StreamResult, maxOutputTokens: Int) { stream = callback }
     override fun inferenceDetails(): String { detailCalls++; return if (search) "CPU · 4 threads" else "GPU · 8192-token context" }
     override fun release(callback: Completion) { if (failRelease) callback.failure("Release failed") else callback.success() }
     override fun cancel() {}
